@@ -21,6 +21,9 @@
     "rename_dict": {},
     "exclude_mouse_list": [],
     "target_group": "WT",
+    "comparison_mode": "drug",
+    "comparison_drug": "vehicle",
+    "mouse_groups_to_compare": [],
     "output_dir": "/data/figures/kaist",
     "epoch_len_sec": 8,
     "sample_freq": 128

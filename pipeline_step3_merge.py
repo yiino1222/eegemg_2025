@@ -9,7 +9,18 @@ sys.path.append('/p-antipsychotics-sleep')
 import analysis as ana
 
 
-def merge_and_plot(analyzed_dir_list, rename_dict, exclude_mouse_list, target_group, output_dir, epoch_len_sec, sample_freq):
+def merge_and_plot(
+    analyzed_dir_list,
+    rename_dict,
+    exclude_mouse_list,
+    target_group,
+    output_dir,
+    epoch_len_sec,
+    sample_freq,
+    comparison_mode="drug",
+    comparison_drug="vehicle",
+    mouse_groups_to_compare=None,
+):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -21,13 +32,16 @@ def merge_and_plot(analyzed_dir_list, rename_dict, exclude_mouse_list, target_gr
         target_group,
         str(output_dir),
         group_rename_dic=rename_dict,
+        comparison_mode=comparison_mode,
+        comparison_drug=comparison_drug,
+        mouse_groups_to_compare=mouse_groups_to_compare,
     )
 
     stage_df = (output_dir / "meta_stage_n_bout_df_after.csv")
     psd_df = (output_dir / "merge_norm_psd_ts_df_after.csv")
     bout_df = (output_dir / "meta_stage_n_bout_df_after.csv")
 
-    if stage_df.exists() and psd_df.exists() and bout_df.exists():
+    if comparison_mode == "drug" and stage_df.exists() and psd_df.exists() and bout_df.exists():
         import pandas as pd
 
         stage_df = pd.read_csv(stage_df)
@@ -46,6 +60,23 @@ def main() -> None:
     parser.add_argument("--rename-dict", type=str, default="{}", help="Optional group rename mapping as JSON string")
     parser.add_argument("--exclude-mouse-list", nargs="*", default=[], help="Mouse IDs to exclude from merging")
     parser.add_argument("--target-group", default="WT", help="Target group name used for statistical tests")
+    parser.add_argument(
+        "--comparison-mode",
+        choices=["drug", "mouse_group"],
+        default="drug",
+        help="drug: compare drugs within a mouse group (default). mouse_group: compare mouse groups within a single drug.",
+    )
+    parser.add_argument(
+        "--comparison-drug",
+        default="vehicle",
+        help="Drug name to use when comparison-mode is mouse_group",
+    )
+    parser.add_argument(
+        "--mouse-groups-to-compare",
+        nargs="*",
+        default=None,
+        help="Mouse groups to compare when comparison-mode is mouse_group (defaults to all groups found).",
+    )
     parser.add_argument("--output-dir", type=Path, required=True, help="Directory to store merged outputs")
     parser.add_argument("--epoch-len-sec", type=int, default=8)
     parser.add_argument("--sample-freq", type=int, default=128)
@@ -61,6 +92,9 @@ def main() -> None:
         args.output_dir,
         args.epoch_len_sec,
         args.sample_freq,
+        args.comparison_mode,
+        args.comparison_drug,
+        args.mouse_groups_to_compare,
     )
 
 
