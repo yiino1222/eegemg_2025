@@ -95,6 +95,14 @@ Final figures (figures)
 
 ---
 
+## Archived legacy utilities
+
+The repository previously contained notebooks and GUI helpers that are **not** used by the three-step pipeline above. These
+legacy assets are still available under the `archive/` directory for reference but are excluded from the active pipeline
+execution path.
+
+---
+
 ## 1. Environment Setup
 
 ### 1.1 Clone the Repository
