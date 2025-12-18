@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 import pandas as pd
 import os
-import sys
-sys.path.append('/p-antipsychotics-sleep')
 import numpy as np
 import pickle
 import argparse
@@ -674,6 +672,84 @@ def plot_ts_1group(mean,sem,count,g_name,sleep_stage,ax1,val_name,y_label):
         ax.legend(fontsize=10,frameon=False)
     plt.subplots_adjust(wspace=0.4, hspace=0.6)
 
+
+def plot_ts_mouse_groups(mean, sem, count, mouse_groups, drug, sleep_stage, ax1, val_name, y_label):
+    x_val = np.arange(0, 24)
+    palette = sns.color_palette("colorblind", n_colors=len(mouse_groups))
+
+    plotted_any = False
+    for g_name, color in zip(mouse_groups, palette):
+        try:
+            y, err = extract_mean_n_err(mean, sem, g_name, drug, sleep_stage, val_name)
+            sample_n = count.loc[pd.IndexSlice[g_name, drug, sleep_stage, 0]][0]
+        except KeyError:
+            print(f"[WARN] plot_ts_mouse_groups: data missing for group={g_name}, drug={drug}, stage={sleep_stage}")
+            continue
+
+        plot_timeseries(ax1, x_val, y, err, color, g_name)
+        plotted_any = True
+
+    if not plotted_any:
+        print(f"[WARN] plot_ts_mouse_groups: no data plotted for drug={drug}, stage={sleep_stage}")
+        return
+
+    for ax in [ax1]:
+        ax.plot([0, 60], [0.1, 0.1], linewidth=5, color="yellow")
+        ax.plot([6.5, 17.5], [0.1, 0.1], linewidth=5, color="k")
+        if val_name=="min_per_hour":
+            if sleep_stage=="REM":
+                ax.set_ylim([0,20])
+                ax.set_yticks([0,10,20])
+            else:
+                ax.set_ylim([0,60])
+                ax.set_yticks([0,20,40,60])
+        elif val_name=="bout_count":
+            if sleep_stage=="REM":
+                ax.set_ylim([0,10])
+                ax.set_yticks([0,5,10])
+            else:
+                ax.set_ylim([0,40])
+                ax.set_yticks([0,20,40])
+        elif val_name=="mean_duration_sec":
+            if sleep_stage=="Wake":
+                ax.set_ylim([0,2000])
+                ax.set_yticks([0,1000,2000])
+            elif sleep_stage=="NREM":
+                ax.set_ylim([0,600])
+                ax.set_yticks([0,300,600])
+            elif sleep_stage=="REM":
+                ax.set_ylim([0,100])
+                ax.set_yticks([0,50,100])
+        elif val_name=="norm_delta_percentage":
+            ax.set_ylim([0,10])
+            ax.set_yticks([0,5,10])
+        elif val_name=="delta_power":
+            ax.set_ylim([0,20])
+            ax.set_yticks([0,10,20])
+        elif val_name=="theta_power":
+            ax.set_ylim([0,10])
+            ax.set_yticks([0,5,10])
+        elif val_name=="norm_delta_power":
+            ax.set_ylim([0.5,2])
+            ax.set_yticks([0.5,1,1.5,2])
+        elif val_name=="norm_theta_power":
+            ax.set_ylim([0.5,1.5])
+            ax.set_yticks([0.5,1,1.5])
+            ax.set_ylim([0.5,1.5])
+        else:
+            ax.set_ylim([0,60])
+            ax.set_yticks([0,20,40,60])
+        ax.set_ylabel(y_label)
+        ax.set_xticks([0,6,12,18,24])
+        ax.set_xticklabels([-6,0,6,12,18])
+        ax.plot([6,6],[0,ax.get_ylim()[1]],"--",color="gray")
+        ax.set_xlabel("Time after ip (h)")
+        ax.set_xlim([0,24])
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.legend(fontsize=10,frameon=False)
+    plt.subplots_adjust(wspace=0.4, hspace=0.6)
+
 def plot_PSD_1group(mean,sem,count,g_name,sleep_stage,ax1,y_label):
     freq_bins=sp.psd_freq_bins(sample_freq=128)
     frequency_columns = [f"f@{i}" for i in freq_bins]
@@ -712,7 +788,49 @@ def plot_PSD_1group(mean,sem,count,g_name,sleep_stage,ax1,y_label):
         ax.spines['top'].set_visible(False)
         ax.legend(fontsize=10,frameon=False)
     plt.subplots_adjust(wspace=0.4, hspace=0.6)
-    
+
+
+def plot_PSD_mouse_groups(mean, sem, count, mouse_groups, drug, sleep_stage, ax1, y_label):
+    freq_bins=sp.psd_freq_bins(sample_freq=128)
+    x_val=freq_bins
+    palette = sns.color_palette("colorblind", n_colors=len(mouse_groups))
+
+    plotted_any = False
+    for g_name, color in zip(mouse_groups, palette):
+        try:
+            y,err=extract_mean_n_err_for_PSD(mean,sem,g_name,drug,sleep_stage)
+            sample_n=count.loc[pd.IndexSlice[g_name,drug,sleep_stage]].max()
+        except KeyError:
+            print(f"[WARN] plot_PSD_mouse_groups: data missing for group={g_name}, drug={drug}, stage={sleep_stage}")
+            continue
+        plot_timeseries(ax1,x_val,y,err,color,g_name)
+        plotted_any = True
+
+    if not plotted_any:
+        print(f"[WARN] plot_PSD_mouse_groups: no data plotted for drug={drug}, stage={sleep_stage}")
+        return
+
+    for ax in [ax1]:
+        ax.set_ylabel(y_label)
+        ax.set_xticks([0,6,12,18,24,30])
+        ax.set_xticklabels([0,6,12,18,24,30])
+        ax.set_xlim([0,30])
+        ax.set_xlabel("EEG Frequency (Hz)")
+        if y_label=="Norm power change":
+            ax.set_yticks([0.5,1,1.5])
+            ax.set_yticklabels([0.5,1,1.5])
+            ax.set_ylim([0.5,1.5])
+        else:
+            ax.set_yticks([0,5,10])
+            ax.set_yticklabels([0,5,10])
+            ax.set_ylim([0,10])
+
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.legend(fontsize=10,frameon=False)
+    plt.subplots_adjust(wspace=0.4, hspace=0.6)
+
+
 def plot_PSD_1group_zoom(mean,sem,count,g_name,sleep_stage,ax1,y_label):
     freq_bins=sp.psd_freq_bins(sample_freq=128)
     frequency_columns = [f"f@{i}" for i in freq_bins]
@@ -750,6 +868,47 @@ def plot_PSD_1group_zoom(mean,sem,count,g_name,sleep_stage,ax1,y_label):
             ax.set_yticklabels([0,5,10])
             ax.set_ylim([0,10])
         
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.legend(fontsize=10,frameon=False)
+    plt.subplots_adjust(wspace=0.4, hspace=0.6)
+
+
+def plot_PSD_mouse_groups_zoom(mean, sem, count, mouse_groups, drug, sleep_stage, ax1, y_label):
+    freq_bins=sp.psd_freq_bins(sample_freq=128)
+    x_val=freq_bins
+    palette = sns.color_palette("colorblind", n_colors=len(mouse_groups))
+
+    plotted_any = False
+    for g_name, color in zip(mouse_groups, palette):
+        try:
+            y,err=extract_mean_n_err_for_PSD(mean,sem,g_name,drug,sleep_stage)
+            sample_n=count.loc[pd.IndexSlice[g_name,drug,sleep_stage]].max()
+        except KeyError:
+            print(f"[WARN] plot_PSD_mouse_groups_zoom: data missing for group={g_name}, drug={drug}, stage={sleep_stage}")
+            continue
+        plot_timeseries(ax1,x_val,y,err,color,g_name)
+        plotted_any = True
+
+    if not plotted_any:
+        print(f"[WARN] plot_PSD_mouse_groups_zoom: no data plotted for drug={drug}, stage={sleep_stage}")
+        return
+
+    for ax in [ax1]:
+        ax.set_ylabel(y_label)
+        ax.set_xticks([0,4,8,12])
+        ax.set_xticklabels([0,4,8,12])
+        ax.set_xlim([0,12])
+        ax.set_xlabel("EEG Frequency (Hz)")
+        if y_label=="Norm power change":
+            ax.set_yticks([0.5,1,1.5])
+            ax.set_yticklabels([0.5,1,1.5])
+            ax.set_ylim([0.5,1.5])
+        else:
+            ax.set_yticks([0,5,10])
+            ax.set_yticklabels([0,5,10])
+            ax.set_ylim([0,10])
+
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         ax.legend(fontsize=10,frameon=False)
@@ -843,6 +1002,82 @@ def plot_bargraph(df, target_group, sleep_stage, y_value, y_label, ax, is_norm=F
         ax.set_xticks([0,1])
         ax.set_xticklabels(["rapalog","vehicle"], rotation=90)
         ax.set_xlim([-0.5,1.5])
+        ax.set_xlabel("")
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+
+
+def plot_bargraph_mouse_groups(df, mouse_groups, drug, sleep_stage, y_value, y_label, ax, is_norm=False):
+    dfr = df.reset_index()
+    sub = dfr[(dfr["drug"] == drug) & (dfr["stage"] == sleep_stage) & (dfr["mouse_group"].isin(mouse_groups))]
+
+    if sub.empty:
+        print(f"[WARN] plot_bargraph_mouse_groups: no data for drug={drug}, stage={sleep_stage}, groups={mouse_groups}")
+        return
+
+    palette = dict(zip(mouse_groups, sns.color_palette("colorblind", n_colors=len(mouse_groups))))
+
+    sns.barplot(
+        data=sub,
+        x="mouse_group",
+        y=y_value,
+        hue="mouse_group",
+        palette=palette,
+        dodge=False,
+        legend=False,
+        ax=ax,
+    )
+
+    for mouse_id, g in sub.groupby("mouse_ID"):
+        if len(g["mouse_group"].unique()) < 2:
+            continue
+        g_sorted = g.sort_values("mouse_group")
+        ax.plot([0, 1], g_sorted[y_value].tolist(), color="k", alpha=0.7)
+
+    for ax in [ax]:
+        if y_value == "min_per_hour":
+            if sleep_stage == "REM":
+                ax.set_ylim([0,10])
+                ax.set_yticks([0,5,10])
+            else:
+                ax.set_ylim([0,65])
+                ax.set_yticks([0,30,60])
+        elif y_value == "bout_count":
+            if sleep_stage == "REM":
+                ax.set_ylim([0,10])
+                ax.set_yticks([0,5,10])
+            else:
+                ax.set_ylim([0,40])
+                ax.set_yticks([0,20,40])
+        elif y_value == "mean_duration_sec":
+            if sleep_stage == "Wake":
+                ax.set_ylim([0,3000])
+                ax.set_yticks([0,1500,3000])
+            elif sleep_stage == "NREM":
+                ax.set_ylim([0,600])
+                ax.set_yticks([0,300,600])
+            elif sleep_stage == "REM":
+                ax.set_ylim([0,100])
+                ax.set_yticks([0,50,100])
+        elif y_value == "delta_power":
+            if is_norm:
+                ax.set_ylim([0.5,2])
+                ax.set_yticks([0.5,1,1.5,2.0])
+            else:
+                ax.set_ylim([0,20])
+                ax.set_yticks([0,10,20])
+        elif y_value == "theta_power":
+            if is_norm:
+                ax.set_ylim([0.5,1.5])
+                ax.set_yticks([0.5,1,1.5])
+            else:
+                ax.set_ylim([0,20])
+                ax.set_yticks([0,10,20])
+
+        ax.set_ylabel(y_label)
+        ax.set_xticks(range(len(mouse_groups)))
+        ax.set_xticklabels(mouse_groups, rotation=90)
+        ax.set_xlim([-0.5, len(mouse_groups) - 0.5])
         ax.set_xlabel("")
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
@@ -1035,7 +1270,18 @@ def fill_na(df: pd.DataFrame) -> pd.DataFrame:
         return g.sort_index(level="time_in_hour").bfill().ffill()
     return df.groupby(level=group_levels, group_keys=False).apply(_ffill_bfill)
 
-def merge_n_plot(analyzed_dir_list,epoch_len_sec,sample_freq,exclude_mouse_list,target_group,output_dir,group_rename_dic=None):
+def merge_n_plot(
+    analyzed_dir_list,
+    epoch_len_sec,
+    sample_freq,
+    exclude_mouse_list,
+    target_group,
+    output_dir,
+    group_rename_dic=None,
+    comparison_mode="drug",
+    comparison_drug="vehicle",
+    mouse_groups_to_compare=None,
+):
     #merge analyzed data
     meta_stage_df,meta_sw_trans_df,meta_stage_bout_df,meta_psd_start_end_df=merge_sleep_stage_df(analyzed_dir_list,epoch_len_sec,sample_freq)
     merge_psd_ts_df,merge_psd_profile_df=merge_psd_df(analyzed_dir_list)
@@ -1095,6 +1341,17 @@ def merge_n_plot(analyzed_dir_list,epoch_len_sec,sample_freq,exclude_mouse_list,
     print(merge_norm_psd_ts_df)
     merge_norm_psd_ts_df.to_csv(os.path.join(output_dir,"merge_norm_psd_ts_df.csv"))
 
+    if comparison_mode not in ("drug", "mouse_group"):
+        raise ValueError(f"comparison_mode must be 'drug' or 'mouse_group', got {comparison_mode}")
+
+    if comparison_mode == "mouse_group":
+        available_groups = sorted(meta_stage_df.index.get_level_values("mouse_group").unique())
+        selected_mouse_groups = mouse_groups_to_compare or available_groups
+        if len(selected_mouse_groups) < 2:
+            raise ValueError("At least two mouse groups are required when comparison_mode is 'mouse_group'")
+    else:
+        selected_mouse_groups = [target_group]
+
     #group analysis of timeseries data
     meta_stage_mean,meta_stage_sem,meta_stage_count=group_analysis_each_df(meta_stage_df)
     #meta_sw_trans_mean,meta_sw_trans_sem,meta_sw_trans_count=group_analysis_each_df(meta_sw_trans_df)
@@ -1130,6 +1387,34 @@ def merge_n_plot(analyzed_dir_list,epoch_len_sec,sample_freq,exclude_mouse_list,
     print("mouse_group in meta_norm_psd_ts_after_mean:",
         sorted(meta_norm_psd_ts_after_mean.index.get_level_values("mouse_group").unique()))
 
+
+    def plot_ts_dispatch(mean, sem, count, sleep_stage, ax, val_name, y_label):
+        if comparison_mode == "mouse_group":
+            plot_ts_mouse_groups(mean, sem, count, selected_mouse_groups, comparison_drug, sleep_stage, ax, val_name, y_label)
+        else:
+            plot_ts_1group(mean, sem, count, target_group, sleep_stage, ax, val_name, y_label)
+
+
+    def plot_psd_dispatch(mean, sem, count, sleep_stage, ax, y_label):
+        if comparison_mode == "mouse_group":
+            plot_PSD_mouse_groups(mean, sem, count, selected_mouse_groups, comparison_drug, sleep_stage, ax, y_label)
+        else:
+            plot_PSD_1group(mean, sem, count, target_group, sleep_stage, ax, y_label)
+
+
+    def plot_psd_zoom_dispatch(mean, sem, count, sleep_stage, ax, y_label):
+        if comparison_mode == "mouse_group":
+            plot_PSD_mouse_groups_zoom(mean, sem, count, selected_mouse_groups, comparison_drug, sleep_stage, ax, y_label)
+        else:
+            plot_PSD_1group_zoom(mean, sem, count, target_group, sleep_stage, ax, y_label)
+
+
+    def plot_bar_dispatch(df, sleep_stage, y_value, y_label, ax, is_norm=False):
+        if comparison_mode == "mouse_group":
+            plot_bargraph_mouse_groups(df, selected_mouse_groups, comparison_drug, sleep_stage, y_value, y_label, ax, is_norm=is_norm)
+        else:
+            plot_bargraph(df, target_group, sleep_stage, y_value, y_label, ax, is_norm=is_norm)
+
     
     
     # フォント設定
@@ -1154,97 +1439,97 @@ def merge_n_plot(analyzed_dir_list,epoch_len_sec,sample_freq,exclude_mouse_list,
             axes.append(ax)
 
     # 1行目: 各ステージの割合の時系列変化
-    plot_ts_1group(meta_stage_mean,meta_stage_sem,meta_stage_count,
-                target_group,sleep_stage="Wake",ax1=axes[0],val_name="min_per_hour",
+    plot_ts_dispatch(meta_stage_mean,meta_stage_sem,meta_stage_count,
+                sleep_stage="Wake",ax=axes[0],val_name="min_per_hour",
                 y_label="Wake duration (min/h)")
-    plot_ts_1group(meta_stage_mean,meta_stage_sem,meta_stage_count,
-                target_group,sleep_stage="NREM",ax1=axes[1],val_name="min_per_hour",
+    plot_ts_dispatch(meta_stage_mean,meta_stage_sem,meta_stage_count,
+                sleep_stage="NREM",ax=axes[1],val_name="min_per_hour",
                 y_label="NREM sleep duration (min/h)")
-    plot_ts_1group(meta_stage_mean,meta_stage_sem,meta_stage_count,
-                target_group,sleep_stage="REM",ax1=axes[2],val_name="min_per_hour",
+    plot_ts_dispatch(meta_stage_mean,meta_stage_sem,meta_stage_count,
+                sleep_stage="REM",ax=axes[2],val_name="min_per_hour",
                 y_label="REM sleep duration (min/h)")
 
     # 2行目: 各ステージのブートの回数の時系列変化
-    plot_ts_1group(meta_stage_bout_mean,meta_stage_bout_sem,meta_stage_bout_count,
-                target_group,sleep_stage="Wake",ax1=axes[3],val_name="bout_count",
+    plot_ts_dispatch(meta_stage_bout_mean,meta_stage_bout_sem,meta_stage_bout_count,
+                sleep_stage="Wake",ax=axes[3],val_name="bout_count",
                 y_label="Wake bout (/h)")
-    plot_ts_1group(meta_stage_bout_mean,meta_stage_bout_sem,meta_stage_bout_count,
-                target_group,sleep_stage="NREM",ax1=axes[4],val_name="bout_count",
+    plot_ts_dispatch(meta_stage_bout_mean,meta_stage_bout_sem,meta_stage_bout_count,
+                sleep_stage="NREM",ax=axes[4],val_name="bout_count",
                 y_label="NREM bout (/h)")
-    plot_ts_1group(meta_stage_bout_mean,meta_stage_bout_sem,meta_stage_bout_count,
-                target_group,sleep_stage="REM",ax1=axes[5],val_name="bout_count",
+    plot_ts_dispatch(meta_stage_bout_mean,meta_stage_bout_sem,meta_stage_bout_count,
+                sleep_stage="REM",ax=axes[5],val_name="bout_count",
                 y_label="REM bout (/h)")
 
     # 3行目: 各ステージのブートの平均長さの時系列変化
-    plot_ts_1group(meta_stage_bout_mean,meta_stage_bout_sem,meta_stage_bout_count,
-                target_group,sleep_stage="Wake",ax1=axes[6],val_name="mean_duration_sec",
+    plot_ts_dispatch(meta_stage_bout_mean,meta_stage_bout_sem,meta_stage_bout_count,
+                sleep_stage="Wake",ax=axes[6],val_name="mean_duration_sec",
                 y_label="mean Wake bout length (s)")
-    plot_ts_1group(meta_stage_bout_mean,meta_stage_bout_sem,meta_stage_bout_count,
-                target_group,sleep_stage="NREM",ax1=axes[7],val_name="mean_duration_sec",
+    plot_ts_dispatch(meta_stage_bout_mean,meta_stage_bout_sem,meta_stage_bout_count,
+                sleep_stage="NREM",ax=axes[7],val_name="mean_duration_sec",
                 y_label="mean NREM bout length (s)")
-    plot_ts_1group(meta_stage_bout_mean,meta_stage_bout_sem,meta_stage_bout_count,
-                target_group,sleep_stage="REM",ax1=axes[8],val_name="mean_duration_sec",
+    plot_ts_dispatch(meta_stage_bout_mean,meta_stage_bout_sem,meta_stage_bout_count,
+                sleep_stage="REM",ax=axes[8],val_name="mean_duration_sec",
                 y_label="mean REM bout length (s)")
     
     # 4行目: 各ステージのデルタパワーの時系列変化
-    plot_ts_1group(meta_psd_ts_mean,meta_psd_ts_sem,meta_psd_ts_count,
-                target_group,sleep_stage="Wake",ax1=axes[9],val_name="delta_power",
+    plot_ts_dispatch(meta_psd_ts_mean,meta_psd_ts_sem,meta_psd_ts_count,
+                sleep_stage="Wake",ax=axes[9],val_name="delta_power",
                 y_label="delta power (%)")
-    plot_ts_1group(meta_psd_ts_mean,meta_psd_ts_sem,meta_psd_ts_count,
-                target_group,sleep_stage="NREM",ax1=axes[10],val_name="delta_power",
+    plot_ts_dispatch(meta_psd_ts_mean,meta_psd_ts_sem,meta_psd_ts_count,
+                sleep_stage="NREM",ax=axes[10],val_name="delta_power",
                 y_label="delta power (%)")
-    plot_ts_1group(meta_psd_ts_mean,meta_psd_ts_sem,meta_psd_ts_count,
-                target_group,sleep_stage="REM",ax1=axes[11],val_name="delta_power",
+    plot_ts_dispatch(meta_psd_ts_mean,meta_psd_ts_sem,meta_psd_ts_count,
+                sleep_stage="REM",ax=axes[11],val_name="delta_power",
                 y_label="delta power (%)")
     
     # 5行目: 各ステージのデルタパワーの時系列変化
-    plot_ts_1group(meta_norm_psd_ts_mean,meta_norm_psd_ts_sem,meta_norm_psd_ts_count,
-                target_group,sleep_stage="Wake",ax1=axes[12],val_name="norm_delta_power",
+    plot_ts_dispatch(meta_norm_psd_ts_mean,meta_norm_psd_ts_sem,meta_norm_psd_ts_count,
+                sleep_stage="Wake",ax=axes[12],val_name="norm_delta_power",
                 y_label="norm. delta power")
-    plot_ts_1group(meta_norm_psd_ts_mean,meta_norm_psd_ts_sem,meta_norm_psd_ts_count,
-                target_group,sleep_stage="NREM",ax1=axes[13],val_name="norm_delta_power",
+    plot_ts_dispatch(meta_norm_psd_ts_mean,meta_norm_psd_ts_sem,meta_norm_psd_ts_count,
+                sleep_stage="NREM",ax=axes[13],val_name="norm_delta_power",
                 y_label="norm. delta power")
-    plot_ts_1group(meta_norm_psd_ts_mean,meta_norm_psd_ts_sem,meta_norm_psd_ts_count,
-                target_group,sleep_stage="REM",ax1=axes[14],val_name="norm_delta_power",
+    plot_ts_dispatch(meta_norm_psd_ts_mean,meta_norm_psd_ts_sem,meta_norm_psd_ts_count,
+                sleep_stage="REM",ax=axes[14],val_name="norm_delta_power",
                 y_label="norm. delta power")
     
     # 6行目: 各ステージのシータパワーの時系列変化
-    plot_ts_1group(meta_psd_ts_mean,meta_psd_ts_sem,meta_psd_ts_count,
-                target_group,sleep_stage="Wake",ax1=axes[15],val_name="theta_power",
+    plot_ts_dispatch(meta_psd_ts_mean,meta_psd_ts_sem,meta_psd_ts_count,
+                sleep_stage="Wake",ax=axes[15],val_name="theta_power",
                 y_label="theta power (%)")
-    plot_ts_1group(meta_psd_ts_mean,meta_psd_ts_sem,meta_psd_ts_count,
-                target_group,sleep_stage="NREM",ax1=axes[16],val_name="theta_power",
+    plot_ts_dispatch(meta_psd_ts_mean,meta_psd_ts_sem,meta_psd_ts_count,
+                sleep_stage="NREM",ax=axes[16],val_name="theta_power",
                 y_label="theta power (%)")
-    plot_ts_1group(meta_psd_ts_mean,meta_psd_ts_sem,meta_psd_ts_count,
-                target_group,sleep_stage="REM",ax1=axes[17],val_name="theta_power",
+    plot_ts_dispatch(meta_psd_ts_mean,meta_psd_ts_sem,meta_psd_ts_count,
+                sleep_stage="REM",ax=axes[17],val_name="theta_power",
                 y_label="theta power (%)")
     
     # 7行目: 各ステージのデルタパワーの時系列変化
-    plot_ts_1group(meta_norm_psd_ts_mean,meta_norm_psd_ts_sem,meta_norm_psd_ts_count,
-                target_group,sleep_stage="Wake",ax1=axes[18],val_name="norm_theta_power",
+    plot_ts_dispatch(meta_norm_psd_ts_mean,meta_norm_psd_ts_sem,meta_norm_psd_ts_count,
+                sleep_stage="Wake",ax=axes[18],val_name="norm_theta_power",
                 y_label="norm. theta power")
-    plot_ts_1group(meta_norm_psd_ts_mean,meta_norm_psd_ts_sem,meta_norm_psd_ts_count,
-                target_group,sleep_stage="NREM",ax1=axes[19],val_name="norm_theta_power",
+    plot_ts_dispatch(meta_norm_psd_ts_mean,meta_norm_psd_ts_sem,meta_norm_psd_ts_count,
+                sleep_stage="NREM",ax=axes[19],val_name="norm_theta_power",
                 y_label="norm. theta power")
-    plot_ts_1group(meta_norm_psd_ts_mean,meta_norm_psd_ts_sem,meta_norm_psd_ts_count,
-                target_group,sleep_stage="REM",ax1=axes[20],val_name="norm_theta_power",
+    plot_ts_dispatch(meta_norm_psd_ts_mean,meta_norm_psd_ts_sem,meta_norm_psd_ts_count,
+                sleep_stage="REM",ax=axes[20],val_name="norm_theta_power",
                 y_label="norm. theta power")
 
     # 8行目: 薬剤投与前のパワースペクトラム密度
-    plot_PSD_1group(meta_psd_ts_before_mean,meta_psd_ts_before_sem,meta_psd_ts_before_count,
-                target_group,sleep_stage="Wake",ax1=axes[21],y_label="Normalized power (%)")
-    plot_PSD_1group(meta_psd_ts_before_mean,meta_psd_ts_before_sem,meta_psd_ts_before_count,
-                target_group,sleep_stage="NREM",ax1=axes[22],y_label="Normalized power (%)")
-    plot_PSD_1group(meta_psd_ts_before_mean,meta_psd_ts_before_sem,meta_psd_ts_before_count,
-                target_group,sleep_stage="REM",ax1=axes[23],y_label="Normalized power (%)")
+    plot_psd_dispatch(meta_psd_ts_before_mean,meta_psd_ts_before_sem,meta_psd_ts_before_count,
+                sleep_stage="Wake",ax=axes[21],y_label="Normalized power (%)")
+    plot_psd_dispatch(meta_psd_ts_before_mean,meta_psd_ts_before_sem,meta_psd_ts_before_count,
+                sleep_stage="NREM",ax=axes[22],y_label="Normalized power (%)")
+    plot_psd_dispatch(meta_psd_ts_before_mean,meta_psd_ts_before_sem,meta_psd_ts_before_count,
+                sleep_stage="REM",ax=axes[23],y_label="Normalized power (%)")
 
     # 9行目: 薬剤投与後のパワースペクトラム密度
-    plot_PSD_1group(meta_psd_ts_after_mean,meta_psd_ts_after_sem,meta_psd_ts_after_count,
-                target_group,sleep_stage="Wake",ax1=axes[24],y_label="Normalized power (%)")
-    plot_PSD_1group(meta_psd_ts_after_mean,meta_psd_ts_after_sem,meta_psd_ts_after_count,
-                target_group,sleep_stage="NREM",ax1=axes[25],y_label="Normalized power (%)")
-    plot_PSD_1group(meta_psd_ts_after_mean,meta_psd_ts_after_sem,meta_psd_ts_after_count,
-                target_group,sleep_stage="REM",ax1=axes[26],y_label="Normalized power (%)")
+    plot_psd_dispatch(meta_psd_ts_after_mean,meta_psd_ts_after_sem,meta_psd_ts_after_count,
+                sleep_stage="Wake",ax=axes[24],y_label="Normalized power (%)")
+    plot_psd_dispatch(meta_psd_ts_after_mean,meta_psd_ts_after_sem,meta_psd_ts_after_count,
+                sleep_stage="NREM",ax=axes[25],y_label="Normalized power (%)")
+    plot_psd_dispatch(meta_psd_ts_after_mean,meta_psd_ts_after_sem,meta_psd_ts_after_count,
+                sleep_stage="REM",ax=axes[26],y_label="Normalized power (%)")
     
     # 10行目: ブートの最初のエポックのデルタパワーの変化
     """
@@ -1264,20 +1549,20 @@ def merge_n_plot(analyzed_dir_list,epoch_len_sec,sample_freq,exclude_mouse_list,
                 target_group,sleep_stage="rem_end",ax1=axes[32],val_name="delta_power",y_label="delta_power")
     """
     # 12行目: 薬剤投与後のパワースペクトラム密度
-    plot_PSD_1group(meta_norm_psd_ts_after_mean,meta_norm_psd_ts_after_sem,meta_norm_psd_ts_after_count,
-                target_group,sleep_stage="Wake",ax1=axes[33],y_label="Norm power change")
-    plot_PSD_1group(meta_norm_psd_ts_after_mean,meta_norm_psd_ts_after_sem,meta_norm_psd_ts_after_count,
-                target_group,sleep_stage="NREM",ax1=axes[34],y_label="Norm power change")
-    plot_PSD_1group(meta_norm_psd_ts_after_mean,meta_norm_psd_ts_after_sem,meta_norm_psd_ts_after_count,
-                target_group,sleep_stage="REM",ax1=axes[35],y_label="Norm power change")
+    plot_psd_dispatch(meta_norm_psd_ts_after_mean,meta_norm_psd_ts_after_sem,meta_norm_psd_ts_after_count,
+                sleep_stage="Wake",ax=axes[33],y_label="Norm power change")
+    plot_psd_dispatch(meta_norm_psd_ts_after_mean,meta_norm_psd_ts_after_sem,meta_norm_psd_ts_after_count,
+                sleep_stage="NREM",ax=axes[34],y_label="Norm power change")
+    plot_psd_dispatch(meta_norm_psd_ts_after_mean,meta_norm_psd_ts_after_sem,meta_norm_psd_ts_after_count,
+                sleep_stage="REM",ax=axes[35],y_label="Norm power change")
     
     # 13行目: 薬剤投与後のパワースペクトラム密度
-    plot_PSD_1group_zoom(meta_norm_psd_ts_after_mean,meta_norm_psd_ts_after_sem,meta_norm_psd_ts_after_count,
-                target_group,sleep_stage="Wake",ax1=axes[36],y_label="Norm power change")
-    plot_PSD_1group_zoom(meta_norm_psd_ts_after_mean,meta_norm_psd_ts_after_sem,meta_norm_psd_ts_after_count,
-                target_group,sleep_stage="NREM",ax1=axes[37],y_label="Norm power change")
-    plot_PSD_1group_zoom(meta_norm_psd_ts_after_mean,meta_norm_psd_ts_after_sem,meta_norm_psd_ts_after_count,
-                target_group,sleep_stage="REM",ax1=axes[38],y_label="Norm power change")
+    plot_psd_zoom_dispatch(meta_norm_psd_ts_after_mean,meta_norm_psd_ts_after_sem,meta_norm_psd_ts_after_count,
+                sleep_stage="Wake",ax=axes[36],y_label="Norm power change")
+    plot_psd_zoom_dispatch(meta_norm_psd_ts_after_mean,meta_norm_psd_ts_after_sem,meta_norm_psd_ts_after_count,
+                sleep_stage="NREM",ax=axes[37],y_label="Norm power change")
+    plot_psd_zoom_dispatch(meta_norm_psd_ts_after_mean,meta_norm_psd_ts_after_sem,meta_norm_psd_ts_after_count,
+                sleep_stage="REM",ax=axes[38],y_label="Norm power change")
 
     # プロットを表示
     plt.tight_layout()
@@ -1308,45 +1593,45 @@ def merge_n_plot(analyzed_dir_list,epoch_len_sec,sample_freq,exclude_mouse_list,
     df=meta_stage_n_bout_df_after
 
     # 1行目: 各ステージの割合の時系列変化の平均値
-    plot_bargraph(df,target_group,sleep_stage="Wake",y_value="min_per_hour",
+    plot_bar_dispatch(df,sleep_stage="Wake",y_value="min_per_hour",
                 y_label="mean Wake duration (min/h)\n during 1h after ip",ax=axes[0])
-    plot_bargraph(df,target_group,sleep_stage="NREM",y_value="min_per_hour",
+    plot_bar_dispatch(df,sleep_stage="NREM",y_value="min_per_hour",
                 y_label="mean NREM duration (min/h)\n during 1h after ip",ax=axes[1])
-    plot_bargraph(df,target_group,sleep_stage="REM",y_value="min_per_hour",
+    plot_bar_dispatch(df,sleep_stage="REM",y_value="min_per_hour",
                 y_label="mean REM duration (min/h)\n during 1h after ip",ax=axes[2])
 
     # 2行目: 各ステージのブート数の時系列変化の平均値
-    plot_bargraph(df,target_group,sleep_stage="Wake",y_value="bout_count",
+    plot_bar_dispatch(df,sleep_stage="Wake",y_value="bout_count",
                 y_label="mean Wake bout count (/h)\n during 1h after ip",ax=axes[3])
-    plot_bargraph(df,target_group,sleep_stage="NREM",y_value="bout_count",
+    plot_bar_dispatch(df,sleep_stage="NREM",y_value="bout_count",
                 y_label="mean NREM bout count (/h)\n during 1h after ip",ax=axes[4])
-    plot_bargraph(df,target_group,sleep_stage="REM",y_value="bout_count",
+    plot_bar_dispatch(df,sleep_stage="REM",y_value="bout_count",
                 y_label="mean REM bout count (/h)\n during 1h after ip",ax=axes[5])
 
     # 3行目: 各ステージのブートの長さの時系列変化の平均値
-    plot_bargraph(df,target_group,sleep_stage="Wake",y_value="mean_duration_sec",
+    plot_bar_dispatch(df,sleep_stage="Wake",y_value="mean_duration_sec",
                 y_label="mean Wake bout length (s)\n during 1h after ip",ax=axes[6])
-    plot_bargraph(df,target_group,sleep_stage="NREM",y_value="mean_duration_sec",
+    plot_bar_dispatch(df,sleep_stage="NREM",y_value="mean_duration_sec",
                 y_label="mean NREM bout length (s)\n during 1h after ip",ax=axes[7])
-    plot_bargraph(df,target_group,sleep_stage="REM",y_value="mean_duration_sec",
+    plot_bar_dispatch(df,sleep_stage="REM",y_value="mean_duration_sec",
                 y_label="mean REM bout length (s)\n during 1h after ip",ax=axes[8])
     
     # 4行目: 各ステージの薬剤投与後のデルタの変化
     df=merge_norm_psd_ts_df_after
-    plot_bargraph(df,target_group,sleep_stage="Wake",y_value="delta_power",
+    plot_bar_dispatch(df,sleep_stage="Wake",y_value="delta_power",
                 y_label="relative delta power change\n during 1h after ip",ax=axes[9],is_norm=True)
-    plot_bargraph(df,target_group,sleep_stage="NREM",y_value="delta_power",
+    plot_bar_dispatch(df,sleep_stage="NREM",y_value="delta_power",
                 y_label="relative delta power change\n during 1h after ip",ax=axes[10],is_norm=True)
-    plot_bargraph(df,target_group,sleep_stage="REM",y_value="delta_power",
+    plot_bar_dispatch(df,sleep_stage="REM",y_value="delta_power",
                 y_label="relative delta power change\n during 1h after ip",ax=axes[11],is_norm=True)
     
     # 5行目: 各ステージの薬剤投与後のシータの変化
     df=merge_norm_psd_ts_df_after
-    plot_bargraph(df,target_group,sleep_stage="Wake",y_value="theta_power",
+    plot_bar_dispatch(df,sleep_stage="Wake",y_value="theta_power",
                 y_label="relative theta power change\n during 1h after ip",ax=axes[12],is_norm=True)
-    plot_bargraph(df,target_group,sleep_stage="NREM",y_value="theta_power",
+    plot_bar_dispatch(df,sleep_stage="NREM",y_value="theta_power",
                 y_label="relative theta power change\n during 1h after ip",ax=axes[13],is_norm=True)
-    plot_bargraph(df,target_group,sleep_stage="REM",y_value="theta_power",
+    plot_bar_dispatch(df,sleep_stage="REM",y_value="theta_power",
                 y_label="relative theta power change\n during 1-3h after ip",ax=axes[14],is_norm=True)
 
 

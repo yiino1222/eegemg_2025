@@ -66,6 +66,9 @@ You can orchestrate everything with `run_pipeline.py` and a JSON config (recomme
     "rename_dict": {},
     "exclude_mouse_list": [],
     "target_group": "WT",
+    "comparison_mode": "drug",
+    "comparison_drug": "vehicle",
+    "mouse_groups_to_compare": [],
     "output_dir": "/data/figures/kaist",
     "epoch_len_sec": 8,
     "sample_freq": 128
@@ -92,6 +95,14 @@ pipeline_step3_merge.py
    ↓
 Final figures (figures)
 ```
+
+---
+
+## Archived legacy utilities
+
+The repository previously contained notebooks and GUI helpers that are **not** used by the three-step pipeline above. These
+legacy assets are still available under the `archive/` directory for reference but are excluded from the active pipeline
+execution path.
 
 ---
 
@@ -271,10 +282,14 @@ Outputs are written under `analyzed/.../vehicle_24h_before6h/` and `analyzed/...
 
 ```bash
 python pipeline_step3_merge.py --analyzed_dir_list /your_project/analyzed/kaist/20251120_KA001-004 \
-  --output_dir /your_project/figures/kaist
+  --output_dir /your_project/figures/kaist \
+  --comparison-mode drug
 ```
 
 This step generates **hypnograms**, **PSD plots**, and **summary figures**.
+
+* Use `--comparison-mode drug` (default) to compare two drugs within a single mouse group (legacy behavior controlled by `--target-group`).
+* Use `--comparison-mode mouse_group` to compare two mouse groups within a single drug; set the reference drug with `--comparison-drug` and optionally limit groups via `--mouse-groups-to-compare`.
 
 ### Minimal Workflow Summary
 
