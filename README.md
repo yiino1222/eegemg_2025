@@ -2,13 +2,13 @@
 
 **Mouse EEG / EMG Analysis Pipeline (FASTER2-based)**
 
-This repository provides a pipeline for analyzing mouse EEG and EMG data recorded in **EDF** format. The analysis consists of three sequential steps:
+This repository provides a pipeline for analyzing mouse EEG and EMG data recorded in **EDF** format. The analysis consists of three sequential steps, now implemented as Python scripts (no notebooks required):
 
-1. Preprocessing of raw EEG/EMG data
-2. Sleep stage classification (Wake / NREM / REM) and PSD analysis
-3. Integration with experimental metadata (CSV) and visualization
+1. Preprocessing of raw EEG/EMG data (`pipeline_step1_preprocess.py`)
+2. Sleep stage classification (Wake / NREM / REM) and PSD analysis (`pipeline_step2_analyze.py`)
+3. Integration with experimental metadata (CSV) and visualization (`pipeline_step3_merge.py`)
 
-> ⚠️ **Important**: The steps must be executed **strictly in the order**: **1 → 2 → 3**.
+> ⚠️ **Important**: The steps must be executed **strictly in the order**: **1 → 2 → 3**, whether you call the scripts individually or through `run_pipeline.py`.
 
 ---
 
@@ -22,7 +22,7 @@ docker build -t eegemg-pipeline .
 
 2. Prepare a config file (see `pipeline.config.example.json`).
 
-3. Run all notebooks in sequence with a single command
+3. Run all steps in sequence with a single command
 
 ```bash
 # Mount your data directory and config into the container
@@ -32,7 +32,13 @@ docker run --rm \
   eegemg-pipeline --config /config/pipeline.json
 ```
 
-Executed notebooks are saved in `executed_notebooks/` for debugging.
+The pipeline now executes pure Python scripts (no notebook dependency):
+
+- `pipeline_step1_preprocess.py` — preprocess raw EDF files and cache intermediate results
+- `pipeline_step2_analyze.py` — perform staging, PSD calculations, and statistical summaries
+- `pipeline_step3_merge.py` — merge analyzed outputs and generate figures
+
+You can orchestrate everything with `run_pipeline.py` and a JSON config (recommended for Docker runs).
 
 `pipeline.config.example.json` shows the expected keys:
 
@@ -74,15 +80,15 @@ Executed notebooks are saved in `executed_notebooks/` for debugging.
 ```
 EDF + CSV (data)
    ↓
-1_preprocess_edf.ipynb
+pipeline_step1_preprocess.py
    ↓
 Preprocessed EEG/EMG (result)
    ↓
-2_analyze_stage_n_PSD.ipynb
+pipeline_step2_analyze.py
    ↓
 Sleep stages, PSD, statistics (analyzed)
    ↓
-3_merge_and_plot_data.ipynb
+pipeline_step3_merge.py
    ↓
 Final figures (figures)
 ```
@@ -104,7 +110,6 @@ cd eegemg_2025
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-pip install notebook
 ```
 
 ---
@@ -185,7 +190,7 @@ EEG_p-iino-1-1,EEG_A-E,2025/11/21 7:00,2025/12/5 7:00,128
 **Notes**:
 
 * Datetime format: `YYYY/MM/DD HH:MM`
-* `Sampling freq` must match the value specified in the notebooks
+* `Sampling freq` must match the value specified in your pipeline configuration or CLI options
 
 ---
 
@@ -229,79 +234,55 @@ Ch0,synK-shMegf10,KA001,2022/7/25,Yes
 
 ---
 
-## 4. Analysis Procedure
+## 4. Analysis Procedure (Script-based)
 
-### Step 1: Preprocessing
-
-**Notebook**: `1_preprocess_edf.ipynb`
-
-Set parameters at the end of the notebook:
-
-```python
-prj_dir = "/your_project/raw_data/kaist"
-result_dir_name = "result"
-epoch_len_sec = 8
-sample_freq = 128
-```
-
-**Output**:
-
-```
-raw_data/.../result/pkl/Ch0_EEG.pkl
-raw_data/.../result/pkl/Ch0_EMG.pkl
-```
-
----
-
-### Step 2: Sleep Stage Classification and PSD Analysis
-
-**Notebook**: `2_analyze_stage_n_PSD.ipynb`
-
-#### Analysis Windows
-
-* **Vehicle**: 24 h window starting **6 h before** administration
-* **Rapalog**: 24 h window starting **6 h before** administration
-
-**Output**:
-
-```
-analyzed/.../vehicle_24h_before6h/
-analyzed/.../rapalog_24h_before6h/
-```
-
-#### (Recommended) Visual Inspection of Sleep Stages
+### Option A: Run the entire pipeline
 
 ```bash
-python EEG_EMG_stage_viewer.py
+python run_pipeline.py --config /path/to/pipeline.json
 ```
 
-> Always visually inspect EEG/EMG traces and hypnograms before proceeding.
+### Option B: Run each step manually
 
----
+**Step 1: Preprocessing**
 
-### Step 3: Data Integration and Visualization
+```bash
+python pipeline_step1_preprocess.py --prj_dir /your_project/raw_data/kaist \
+  --result_dir_name result --epoch_len_sec 8 --sample_freq 128 --overwrite false
+```
 
-**Notebook**: `3_merge_and_plot_data.ipynb`
+Outputs are written under `raw_data/.../result/pkl/` as `ChX_EEG.pkl` and `ChX_EMG.pkl`.
 
-#### Example Configuration
+**Step 2: Sleep Stage Classification and PSD Analysis**
 
-```python
-analyzed_dir_list = [
-    "/your_project/analyzed/kaist/20251120_KA001-004"
-]
+```bash
+python pipeline_step2_analyze.py --prj_dir /your_project/raw_data/kaist \
+  --output_dir_name analyzed --epoch_len_sec 8 --result_dir_name result
+```
+
+Outputs are written under `analyzed/.../vehicle_24h_before6h/` and `analyzed/.../rapalog_24h_before6h/`.
+
+> (Recommended) Visually inspect EEG/EMG traces and hypnograms before proceeding:
+> ```bash
+> python EEG_EMG_stage_viewer.py
+> ```
+
+**Step 3: Data Integration and Visualization**
+
+```bash
+python pipeline_step3_merge.py --analyzed_dir_list /your_project/analyzed/kaist/20251120_KA001-004 \
+  --output_dir /your_project/figures/kaist
 ```
 
 This step generates **hypnograms**, **PSD plots**, and **summary figures**.
 
----
-
-## 5. Minimal Workflow Summary
+### Minimal Workflow Summary
 
 1. Place EDF + `exp.info.csv` + `drug.info.csv` + `mouse.info.csv` in `data/`
-2. Run `1_preprocess_edf.ipynb`
-3. Run `2_analyze_stage_n_PSD.ipynb`
-4. Visually inspect sleep stages
-5. Run `3_merge_and_plot_data.ipynb`
+2. Run `pipeline_step1_preprocess.py`
+3. Run `pipeline_step2_analyze.py`
+4. Visually inspect sleep stages (optional but recommended)
+5. Run `pipeline_step3_merge.py`
 
 ---
 
