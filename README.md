@@ -22,7 +22,7 @@ docker build -t eegemg-pipeline .
 
 2. Prepare a config file (see `pipeline.config.example.json`).
 
-3. Run all notebooks in sequence with a single command
+3. Run all steps in sequence with a single command
 
 ```bash
 # Mount your data directory and config into the container
@@ -32,7 +32,13 @@ docker run --rm \
   eegemg-pipeline --config /config/pipeline.json
 ```
 
-Executed notebooks are saved in `executed_notebooks/` for debugging.
+The pipeline now executes pure Python scripts (no notebook dependency):
+
+- `pipeline_step1_preprocess.py` — preprocess raw EDF files and cache intermediate results
+- `pipeline_step2_analyze.py` — perform staging, PSD calculations, and statistical summaries
+- `pipeline_step3_merge.py` — merge analyzed outputs and generate figures
+
+You can still orchestrate everything with `run_pipeline.py` and a JSON config.
 
 `pipeline.config.example.json` shows the expected keys:
 
