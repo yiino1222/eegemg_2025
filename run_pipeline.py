@@ -2,9 +2,11 @@ import argparse
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
-import papermill as pm
+from pipeline_step1_preprocess import preprocess_project
+from pipeline_step2_analyze import analyze_project
+from pipeline_step3_merge import merge_and_plot
 
 LOGGER = logging.getLogger(__name__)
 
@@ -48,40 +50,16 @@ def ensure_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
     return {"preprocess": preprocess, "analysis": analysis, "merge": merge}
 
 
-def execute_notebook(notebook: Path, output: Path, parameters: Dict[str, Any]) -> None:
-    output.parent.mkdir(parents=True, exist_ok=True)
-    LOGGER.info("Running %s", notebook)
-    pm.execute_notebook(
-        str(notebook),
-        str(output),
-        parameters=parameters,
-        progress_bar=False,
-        report_mode=False,
-    )
-
-
-def run_pipeline(config_path: Path, executed_dir: Optional[Path] = None) -> None:
+def run_pipeline(config_path: Path, executed_dir: Path | None = None) -> None:
     config = ensure_defaults(load_config(config_path))
-    executed_dir = executed_dir or Path("executed_notebooks")
-    root = Path(__file__).parent
+    LOGGER.info("Starting preprocessing step")
+    preprocess_project(**config["preprocess"])
 
-    execute_notebook(
-        root / "1_preprocess_edf.ipynb",
-        executed_dir / "1_preprocess_edf.executed.ipynb",
-        config["preprocess"],
-    )
+    LOGGER.info("Starting analysis step")
+    analyze_project(**config["analysis"])
 
-    execute_notebook(
-        root / "2_analyze_stage_n_PSD.ipynb",
-        executed_dir / "2_analyze_stage_n_PSD.executed.ipynb",
-        config["analysis"],
-    )
-
-    execute_notebook(
-        root / "3_merge_and_plot_data.ipynb",
-        executed_dir / "3_merge_and_plot_data.executed.ipynb",
-        config["merge"],
-    )
+    LOGGER.info("Starting merge and plot step")
+    merge_and_plot(**config["merge"])
 
 
 if __name__ == "__main__":
