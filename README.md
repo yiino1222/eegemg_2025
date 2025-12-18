@@ -12,6 +12,63 @@ This repository provides a pipeline for analyzing mouse EEG and EMG data recorde
 
 ---
 
+## 🚀 Run the whole pipeline in Docker (one command)
+
+1. Build the image
+
+```bash
+docker build -t eegemg-pipeline .
+```
+
+2. Prepare a config file (see `pipeline.config.example.json`).
+
+3. Run all notebooks in sequence with a single command
+
+```bash
+# Mount your data directory and config into the container
+docker run --rm \
+  -v /your_project:/data \
+  -v /path/to/pipeline.json:/config/pipeline.json \
+  eegemg-pipeline --config /config/pipeline.json
+```
+
+Executed notebooks are saved in `executed_notebooks/` for debugging.
+
+`pipeline.config.example.json` shows the expected keys:
+
+```json
+{
+  "preprocess": {
+    "prj_dir": "/data/raw_data/kaist",
+    "result_dir_name": "result",
+    "epoch_len_sec": 8,
+    "sample_freq": 128,
+    "overwrite": false,
+    "offset_in_msec": 0
+  },
+  "analysis": {
+    "prj_dir": "/data/raw_data/kaist",
+    "output_dir_name": "analyzed",
+    "faster_dir_list": null,
+    "epoch_len_sec": 8,
+    "result_dir_name": "result"
+  },
+  "merge": {
+    "analyzed_dir_list": [
+      "/data/analyzed/kaist/20251120_KA001-004"
+    ],
+    "rename_dict": {},
+    "exclude_mouse_list": [],
+    "target_group": "WT",
+    "output_dir": "/data/figures/kaist",
+    "epoch_len_sec": 8,
+    "sample_freq": 128
+  }
+}
+```
+
+---
+
 ## Overview of the Analysis Workflow
 
 ```
