@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 import pandas as pd
 import os
-import sys
-sys.path.append('/p-antipsychotics-sleep')
 import numpy as np
 import pickle
 import argparse

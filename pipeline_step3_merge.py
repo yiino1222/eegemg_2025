@@ -1,10 +1,6 @@
 from pathlib import Path
 import argparse
 import json
-import sys
-
-# Ensure repository modules are importable when running in Docker
-sys.path.append('/p-antipsychotics-sleep')
 
 import analysis as ana
 

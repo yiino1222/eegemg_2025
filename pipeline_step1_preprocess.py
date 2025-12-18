@@ -1,11 +1,4 @@
-import sys
 import os
-
-# パスをsys.pathに追加
-sys.path.append("/p-antipsychotics-sleep/")
-
-import os
-import sys
 import argparse
 from pathlib import Path
 import pandas as pd
