@@ -74,3 +74,7 @@ wcwidth==0.2.13
 zipp==3.18.1
 
 #python 3.9.19
+nbclient==0.10.0
+nbconvert==7.16.4
+nbformat==5.9.2
+papermill==2.5.0

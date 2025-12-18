@@ -1,0 +1,28 @@
+{
+  "preprocess": {
+    "prj_dir": "/data/raw_data/kaist",
+    "result_dir_name": "result",
+    "epoch_len_sec": 8,
+    "sample_freq": 128,
+    "overwrite": false,
+    "offset_in_msec": 0
+  },
+  "analysis": {
+    "prj_dir": "/data/raw_data/kaist",
+    "output_dir_name": "analyzed",
+    "faster_dir_list": null,
+    "epoch_len_sec": 8,
+    "result_dir_name": "result"
+  },
+  "merge": {
+    "analyzed_dir_list": [
+      "/data/analyzed/kaist/20251120_KA001-004"
+    ],
+    "rename_dict": {},
+    "exclude_mouse_list": [],
+    "target_group": "WT",
+    "output_dir": "/data/figures/kaist",
+    "epoch_len_sec": 8,
+    "sample_freq": 128
+  }
+}
