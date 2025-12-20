@@ -71,10 +71,28 @@ You can orchestrate everything with `run_pipeline.py` and a JSON config (recomme
     "mouse_groups_to_compare": [],
     "output_dir": "/data/figures/kaist",
     "epoch_len_sec": 8,
-    "sample_freq": 128
+    "sample_freq": 128,
+    "quant_time_windows": {
+      "stage_before": [3, 5],
+      "stage_after": [6, 7],
+      "psd_before": [5, 5],
+      "psd_after": [6, 7],
+      "norm_psd_after": [6, 7]
+    }
   }
 }
 ```
+
+`quant_time_windows` lets you override the time ranges used in Step 3 for aggregation/plots (specified in hours). Each
+entry is a `[start, end]` list; the defaults match the values above. Supported keys:
+
+* `stage_before` / `stage_after`: Stage duration & bout metrics
+* `psd_before` / `psd_after`: Raw PSD summaries
+* `norm_psd_after`: Normalized PSD summaries
+
+When running `pipeline_step3_merge.py` directly, the same mapping can be passed via
+`--quant-time-windows '{"stage_after":[6,7], "psd_after":[6,7]}'`. The selected windows are also printed on the bar plot
+axes so the quantified interval is explicit.
 
 ---
 

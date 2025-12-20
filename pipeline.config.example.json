@@ -26,6 +26,13 @@
     "mouse_groups_to_compare": [],
     "output_dir": "/data/figures/kaist",
     "epoch_len_sec": 8,
-    "sample_freq": 128
+    "sample_freq": 128,
+    "quant_time_windows": {
+      "stage_before": [3, 5],
+      "stage_after": [6, 7],
+      "psd_before": [5, 5],
+      "psd_after": [6, 7],
+      "norm_psd_after": [6, 7]
+    }
   }
 }

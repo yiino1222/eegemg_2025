@@ -1281,7 +1281,32 @@ def merge_n_plot(
     comparison_mode="drug",
     comparison_drug="vehicle",
     mouse_groups_to_compare=None,
+    quant_time_windows=None,
 ):
+    quant_time_windows = quant_time_windows or {}
+
+    def get_window(key, default):
+        window = quant_time_windows.get(key, default)
+        if not (isinstance(window, (list, tuple)) and len(window) == 2):
+            raise ValueError(f"quant_time_windows['{key}'] should be a list/tuple of two numbers.")
+        start, end = window
+        return float(start), float(end)
+
+    def format_window_text(window):
+        start, end = window
+        if start == end:
+            return f"Time window: {start:g} h"
+        return f"Time window: {start:g}–{end:g} h"
+
+    stage_before_window = get_window("stage_before", (3, 5))
+    stage_after_window = get_window("stage_after", (6, 7))
+    psd_before_window = get_window("psd_before", (5, 5))
+    psd_after_window = get_window("psd_after", (6, 7))
+    norm_psd_after_window = get_window("norm_psd_after", psd_after_window)
+
+    stage_after_label = format_window_text(stage_after_window)
+    psd_after_label = format_window_text(norm_psd_after_window)
+
     #merge analyzed data
     meta_stage_df,meta_sw_trans_df,meta_stage_bout_df,meta_psd_start_end_df=merge_sleep_stage_df(analyzed_dir_list,epoch_len_sec,sample_freq)
     merge_psd_ts_df,merge_psd_profile_df=merge_psd_df(analyzed_dir_list)
@@ -1324,16 +1349,16 @@ def merge_n_plot(
     #                                     "theta_power":"norm_theta_power"},inplace=True)
 
     #quantify timeseries data by time window
-    merge_psd_ts_df_before=calculate_mean_power(merge_psd_ts_df, 5, 5)
-    merge_psd_ts_df_after=calculate_mean_power(merge_psd_ts_df,6, 7)
+    merge_psd_ts_df_before=calculate_mean_power(merge_psd_ts_df, *psd_before_window)
+    merge_psd_ts_df_after=calculate_mean_power(merge_psd_ts_df,*psd_after_window)
     #meta_psd_start_end_df_before=calculate_mean_power(meta_psd_start_end_df, 4, 6)
     #meta_psd_start_end_df_after=calculate_mean_power(meta_psd_start_end_df, 7, 9)
     #merge_norm_psd_ts_df_after=calculate_mean_power(merge_norm_psd_ts_df, 7, 9)
-    meta_psd_start_end_df_before=calculate_mean_power(meta_psd_start_end_df, 5, 5)
-    meta_psd_start_end_df_after=calculate_mean_power(meta_psd_start_end_df, 6, 7)
-    merge_norm_psd_ts_df_after=calculate_mean_power(merge_norm_psd_ts_df, 6, 7)
-    meta_stage_n_bout_df_before=calculate_mean_values(meta_stage_df, meta_stage_bout_df, 3, 5)
-    meta_stage_n_bout_df_after=calculate_mean_values(meta_stage_df, meta_stage_bout_df, 6, 7)
+    meta_psd_start_end_df_before=calculate_mean_power(meta_psd_start_end_df, *psd_before_window)
+    meta_psd_start_end_df_after=calculate_mean_power(meta_psd_start_end_df, *psd_after_window)
+    merge_norm_psd_ts_df_after=calculate_mean_power(merge_norm_psd_ts_df, *norm_psd_after_window)
+    meta_stage_n_bout_df_before=calculate_mean_values(meta_stage_df, meta_stage_bout_df, *stage_before_window)
+    meta_stage_n_bout_df_after=calculate_mean_values(meta_stage_df, meta_stage_bout_df, *stage_after_window)
     
     #rename_column_name
     merge_norm_psd_ts_df.rename(columns={"delta_power":"norm_delta_power",
@@ -1594,45 +1619,45 @@ def merge_n_plot(
 
     # 1行目: 各ステージの割合の時系列変化の平均値
     plot_bar_dispatch(df,sleep_stage="Wake",y_value="min_per_hour",
-                y_label="mean Wake duration (min/h)\n during 1h after ip",ax=axes[0])
+                y_label=f"mean Wake duration (min/h)\n{stage_after_label}",ax=axes[0])
     plot_bar_dispatch(df,sleep_stage="NREM",y_value="min_per_hour",
-                y_label="mean NREM duration (min/h)\n during 1h after ip",ax=axes[1])
+                y_label=f"mean NREM duration (min/h)\n{stage_after_label}",ax=axes[1])
     plot_bar_dispatch(df,sleep_stage="REM",y_value="min_per_hour",
-                y_label="mean REM duration (min/h)\n during 1h after ip",ax=axes[2])
+                y_label=f"mean REM duration (min/h)\n{stage_after_label}",ax=axes[2])
 
     # 2行目: 各ステージのブート数の時系列変化の平均値
     plot_bar_dispatch(df,sleep_stage="Wake",y_value="bout_count",
-                y_label="mean Wake bout count (/h)\n during 1h after ip",ax=axes[3])
+                y_label=f"mean Wake bout count (/h)\n{stage_after_label}",ax=axes[3])
     plot_bar_dispatch(df,sleep_stage="NREM",y_value="bout_count",
-                y_label="mean NREM bout count (/h)\n during 1h after ip",ax=axes[4])
+                y_label=f"mean NREM bout count (/h)\n{stage_after_label}",ax=axes[4])
     plot_bar_dispatch(df,sleep_stage="REM",y_value="bout_count",
-                y_label="mean REM bout count (/h)\n during 1h after ip",ax=axes[5])
+                y_label=f"mean REM bout count (/h)\n{stage_after_label}",ax=axes[5])
 
     # 3行目: 各ステージのブートの長さの時系列変化の平均値
     plot_bar_dispatch(df,sleep_stage="Wake",y_value="mean_duration_sec",
-                y_label="mean Wake bout length (s)\n during 1h after ip",ax=axes[6])
+                y_label=f"mean Wake bout length (s)\n{stage_after_label}",ax=axes[6])
     plot_bar_dispatch(df,sleep_stage="NREM",y_value="mean_duration_sec",
-                y_label="mean NREM bout length (s)\n during 1h after ip",ax=axes[7])
+                y_label=f"mean NREM bout length (s)\n{stage_after_label}",ax=axes[7])
     plot_bar_dispatch(df,sleep_stage="REM",y_value="mean_duration_sec",
-                y_label="mean REM bout length (s)\n during 1h after ip",ax=axes[8])
+                y_label=f"mean REM bout length (s)\n{stage_after_label}",ax=axes[8])
     
     # 4行目: 各ステージの薬剤投与後のデルタの変化
     df=merge_norm_psd_ts_df_after
     plot_bar_dispatch(df,sleep_stage="Wake",y_value="delta_power",
-                y_label="relative delta power change\n during 1h after ip",ax=axes[9],is_norm=True)
+                y_label=f"relative delta power change\n{psd_after_label}",ax=axes[9],is_norm=True)
     plot_bar_dispatch(df,sleep_stage="NREM",y_value="delta_power",
-                y_label="relative delta power change\n during 1h after ip",ax=axes[10],is_norm=True)
+                y_label=f"relative delta power change\n{psd_after_label}",ax=axes[10],is_norm=True)
     plot_bar_dispatch(df,sleep_stage="REM",y_value="delta_power",
-                y_label="relative delta power change\n during 1h after ip",ax=axes[11],is_norm=True)
+                y_label=f"relative delta power change\n{psd_after_label}",ax=axes[11],is_norm=True)
     
     # 5行目: 各ステージの薬剤投与後のシータの変化
     df=merge_norm_psd_ts_df_after
     plot_bar_dispatch(df,sleep_stage="Wake",y_value="theta_power",
-                y_label="relative theta power change\n during 1h after ip",ax=axes[12],is_norm=True)
+                y_label=f"relative theta power change\n{psd_after_label}",ax=axes[12],is_norm=True)
     plot_bar_dispatch(df,sleep_stage="NREM",y_value="theta_power",
-                y_label="relative theta power change\n during 1h after ip",ax=axes[13],is_norm=True)
+                y_label=f"relative theta power change\n{psd_after_label}",ax=axes[13],is_norm=True)
     plot_bar_dispatch(df,sleep_stage="REM",y_value="theta_power",
-                y_label="relative theta power change\n during 1-3h after ip",ax=axes[14],is_norm=True)
+                y_label=f"relative theta power change\n{psd_after_label}",ax=axes[14],is_norm=True)
 
 
     plt.tight_layout()

@@ -47,6 +47,7 @@ def ensure_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
         "output_dir": "/p-antipsychotics-sleep/figure/output",
         "epoch_len_sec": preprocess["epoch_len_sec"],
         "sample_freq": preprocess["sample_freq"],
+        "quant_time_windows": {},
         **config.get("merge", {}),
     }
 
