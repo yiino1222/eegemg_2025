@@ -16,6 +16,7 @@ def merge_and_plot(
     comparison_mode="drug",
     comparison_drug="vehicle",
     mouse_groups_to_compare=None,
+    quant_time_windows=None,
 ):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -31,6 +32,7 @@ def merge_and_plot(
         comparison_mode=comparison_mode,
         comparison_drug=comparison_drug,
         mouse_groups_to_compare=mouse_groups_to_compare,
+        quant_time_windows=quant_time_windows,
     )
 
     stage_df = (output_dir / "meta_stage_n_bout_df_after.csv")
@@ -76,9 +78,17 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True, help="Directory to store merged outputs")
     parser.add_argument("--epoch-len-sec", type=int, default=8)
     parser.add_argument("--sample-freq", type=int, default=128)
+    parser.add_argument(
+        "--quant-time-windows",
+        type=str,
+        default="{}",
+        help="JSON mapping for quantification windows, e.g. "
+        '{"stage_after":[6,7],"psd_after":[6,7],"psd_before":[5,5],"stage_before":[3,5]}',
+    )
 
     args = parser.parse_args()
     rename_dict = json.loads(args.rename_dict)
+    quant_time_windows = json.loads(args.quant_time_windows)
 
     merge_and_plot(
         args.analyzed_dir_list,
@@ -91,6 +101,7 @@ def main() -> None:
         args.comparison_mode,
         args.comparison_drug,
         args.mouse_groups_to_compare,
+        quant_time_windows,
     )
 
 
