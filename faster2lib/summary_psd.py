@@ -4,6 +4,7 @@
 from logging import getLogger
 from matplotlib.figure import Figure
 import os
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import faster2lib.eeg_tools as et
@@ -168,14 +169,17 @@ def make_target_psd_info(mouse_info_df, epoch_range, epoch_len_sec, sample_freq,
 
 
         # read stage of the mouse
+        result_dir = Path(faster_dir)
+        if result_dir.name != result_dir_name:
+            result_dir = result_dir / result_dir_name
+        result_dir = str(result_dir)
         try:
-            stage_call, nan_eeg, outlier_eeg = et.read_stages_with_eeg_diagnosis(os.path.join(
-                faster_dir, result_dir_name), device_label, stage_ext)
+            stage_call, nan_eeg, outlier_eeg = et.read_stages_with_eeg_diagnosis(
+                result_dir, device_label, stage_ext)
         except IndexError:
             # Manually annotated stage files may not have diagnostic info
             LOGGER.info('NA and outlier information is not available in the stage file')
-            stage_call = et.read_stages(os.path.join(
-                faster_dir, result_dir_name), device_label, stage_ext)
+            stage_call = et.read_stages(result_dir, device_label, stage_ext)
             nan_eeg = np.repeat(0, len(stage_call))
             outlier_eeg = np.repeat(0, len(stage_call))
         epoch_num = len(stage_call)
@@ -186,8 +190,7 @@ def make_target_psd_info(mouse_info_df, epoch_range, epoch_len_sec, sample_freq,
         #    os.path.join(faster_dir, 'data'), device_label, sample_freq, epoch_len_sec,
         #    epoch_num, start_datetime)
         (eeg_vm_org, emg_vm_org, not_yet_pickled) = stage.read_voltage_matrices(
-            os.path.join(faster_dir, result_dir_name), device_label, sample_freq, epoch_len_sec,
-            epoch_num, start_datetime)
+            result_dir, device_label, sample_freq, epoch_len_sec, epoch_num, start_datetime)
 
 
         LOGGER.info('Preprocessing and calculating PSD')
