@@ -2,7 +2,7 @@ import argparse
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from pipeline_step1_preprocess import preprocess_project
 from pipeline_step2_analyze import analyze_project
@@ -54,7 +54,7 @@ def ensure_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
     return {"preprocess": preprocess, "analysis": analysis, "merge": merge}
 
 
-def run_pipeline(config_path: Path, executed_dir: Path | None = None) -> None:
+def run_pipeline(config_path: Path, executed_dir: Optional[Path] = None) -> None:
     config = ensure_defaults(load_config(config_path))
     LOGGER.info("Starting preprocessing step")
     preprocess_project(**config["preprocess"])
@@ -73,8 +73,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config",
         type=Path,
-        required=True,
-        help="Path to JSON configuration file describing inputs and outputs.",
+        default=Path("/data/config.json"),
+        help=(
+            "Path to JSON configuration file describing inputs and outputs "
+            "(default: /data/config.json)."
+        ),
     )
     parser.add_argument(
         "--executed-dir",
