@@ -154,9 +154,15 @@ def stagetime_profile(stage_call, epoch_len_sec):
         [np.array(3, len(stage_calls))] -- each row corrensponds the
         hourly profiles of stages over the recording (rem, nrem, wake)
     """
-    print(stage_call.shape)
-    sm = stage_call.reshape(-1, int(3600/epoch_len_sec)
-                            )  # 60 min(3600 sec) bin
+    bin_size = int(3600 / epoch_len_sec)
+    usable_len = (len(stage_call) // bin_size) * bin_size
+    if usable_len == 0:
+        print_log("Stage call length is shorter than one hour; skipping profile.")
+        return np.zeros((3, 0))
+    if usable_len != len(stage_call):
+        print_log(f"Trimming stage calls to {usable_len} for hourly profile.")
+        stage_call = stage_call[:usable_len]
+    sm = stage_call.reshape(-1, bin_size)  # 60 min(3600 sec) bin
     rem = np.array([np.sum(s == 'REM')*epoch_len_sec /
                     60 for s in sm])  # unit minuite
     nrem = np.array([np.sum(s == 'NREM')*epoch_len_sec /
@@ -180,8 +186,16 @@ def stagetime_circadian_profile(stage_call, epoch_len_sec):
                             x 3rd axis [24 hours]
     """
     # 60 min(3600 sec) bin
-    print(stage_call.shape)
-    sm = stage_call.reshape(-1, int(3600/epoch_len_sec))
+    bin_size = int(3600 / epoch_len_sec)
+    day_size = bin_size * 24
+    usable_len = (len(stage_call) // day_size) * day_size
+    if usable_len == 0:
+        print_log("Stage call length is shorter than one day; skipping circadian profile.")
+        return np.zeros((2, 3, 0))
+    if usable_len != len(stage_call):
+        print_log(f"Trimming stage calls to {usable_len} for circadian profile.")
+        stage_call = stage_call[:usable_len]
+    sm = stage_call.reshape(-1, bin_size)
     rem = np.array([np.sum(s == 'REM')*epoch_len_sec /
                     60 for s in sm])  # unit minuite
     nrem = np.array([np.sum(s == 'NREM')*epoch_len_sec /
