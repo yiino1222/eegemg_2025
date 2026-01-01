@@ -803,10 +803,9 @@ def draw_stagetime_profile_grouped(stagetime_stats, epoch_len_sec, output_dir):
 def draw_swtrans_profile_individual(stagetime_stats, epoch_len_sec, output_dir):
     stagetime_df = stagetime_stats['stagetime']
     swtrans_profile_list = stagetime_stats['swtrans_profile']
-    epoch_num = stagetime_stats['epoch_num_in_range']
-    x_max = epoch_num*epoch_len_sec/3600
-    x = np.arange(x_max)
     for i, profile in enumerate(swtrans_profile_list):
+        x_max = profile.shape[1]
+        x = np.arange(x_max)
         fig = Figure(figsize=(13, 6))
         ax1 = fig.add_subplot(211, xmargin=0, ymargin=0)
         ax2 = fig.add_subplot(212, xmargin=0, ymargin=0)
@@ -849,8 +848,7 @@ def draw_swtrans_profile_grouped(stagetime_stats, epoch_len_sec, output_dir):
                 np.nanstd, 0, swtrans_profile_mat[bidx])
             swtrans_profile_stats_list.append(
                 np.array([swtrans_profile_mean, swtrans_profile_sd]))
-    epoch_num = stagetime_stats['epoch_num_in_range']
-    x_max = epoch_num*epoch_len_sec/3600
+    x_max = swtrans_profile_mat.shape[-1]
     x = np.arange(x_max)
     if len(mouse_groups_set) > 1:
         # contrast to group index = 0
@@ -907,7 +905,7 @@ def draw_swtrans_profile_grouped(stagetime_stats, epoch_len_sec, output_dir):
         g_idx = 0
 
         num = np.sum(bidx_group_list[g_idx])
-        x_max = epoch_num*epoch_len_sec/3600
+        x_max = swtrans_profile_mat.shape[-1]
         x = np.arange(x_max)
         fig = Figure(figsize=(13, 6))
         ax1 = fig.add_subplot(211, xmargin=0, ymargin=0)
