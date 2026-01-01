@@ -90,9 +90,18 @@ def collect_mouse_info_df(faster_dir_list, epoch_len_sec):
     epoch_num_stored = None
     sample_freq_stored = None
     for faster_dir in faster_dir_list:
-        data_dir = os.path.join(faster_dir, 'data')
+        data_dir = Path(faster_dir) / "data"
+        if not (data_dir / "exp.info.csv").exists():
+            sibling_data_dir = Path(faster_dir).parent / "data"
+            if (sibling_data_dir / "exp.info.csv").exists():
+                data_dir = sibling_data_dir
+            else:
+                raise FileNotFoundError(
+                    "exp.info.csv was not found under expected data directories. "
+                    f"Tried: {data_dir / 'exp.info.csv'} and {sibling_data_dir / 'exp.info.csv'}"
+                )
 
-        exp_info_df = stage.read_exp_info(data_dir)
+        exp_info_df = stage.read_exp_info(str(data_dir))
         # not used variable: rack_label, start_datetime, end_datetime
         # pylint: disable=unused-variable
         (epoch_num, sample_freq, exp_label, rack_label, \
@@ -106,7 +115,7 @@ def collect_mouse_info_df(faster_dir_list, epoch_len_sec):
         else:
             sample_freq_stored = sample_freq
 
-        m_info = stage.read_mouse_info(data_dir)
+        m_info = stage.read_mouse_info(str(data_dir))
         m_info['Experiment label'] = exp_label
         m_info['FASTER_DIR'] = faster_dir
         mouse_info_df = pd.concat([mouse_info_df, m_info])
