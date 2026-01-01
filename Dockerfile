@@ -2,7 +2,7 @@ FROM python:3.9-slim
 
 # Repository cloning options
 ARG REPO_URL=https://github.com/yiino1222/eegemg_2025.git
-ARG REPO_REF=main
+ARG REPO_REF=master
 
 WORKDIR /app
 
