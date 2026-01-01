@@ -478,10 +478,22 @@ def swtrans_profile(stage_call, epoch_len_sec):
     tws = np.append(tws, 0)
     tww = np.append(tww, 0)
 
-    tsw_mat = tsw.reshape(-1, int(3600/epoch_len_sec))  # 60 min(3600 sec) bin
-    tss_mat = tss.reshape(-1, int(3600/epoch_len_sec))
-    tws_mat = tws.reshape(-1, int(3600/epoch_len_sec))
-    tww_mat = tww.reshape(-1, int(3600/epoch_len_sec))
+    bin_size = int(3600 / epoch_len_sec)
+    usable_len = (len(tsw) // bin_size) * bin_size
+    if usable_len == 0:
+        print_log("Stage call length is shorter than one hour; skipping swtrans profile.")
+        return [np.array([]), np.array([])]
+    if usable_len != len(tsw):
+        print_log(f"Trimming stage calls to {usable_len} for swtrans profile.")
+        tsw = tsw[:usable_len]
+        tss = tss[:usable_len]
+        tws = tws[:usable_len]
+        tww = tww[:usable_len]
+
+    tsw_mat = tsw.reshape(-1, bin_size)  # 60 min(3600 sec) bin
+    tss_mat = tss.reshape(-1, bin_size)
+    tws_mat = tws.reshape(-1, bin_size)
+    tww_mat = tww.reshape(-1, bin_size)
 
     hourly_tsw = np.apply_along_axis(np.sum, 1, tsw_mat) 
     hourly_tss = np.apply_along_axis(np.sum, 1, tss_mat) 
