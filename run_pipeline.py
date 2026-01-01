@@ -10,9 +10,25 @@ from pipeline_step3_merge import merge_and_plot
 
 LOGGER = logging.getLogger(__name__)
 
+DEFAULT_CONFIG_PATH = Path("/data/config.json")
+
+
+def resolve_config_path(config_path: Path) -> Path:
+    if config_path.is_dir():
+        config_path = config_path / "config.json"
+    if config_path.exists():
+        return config_path
+    if config_path != DEFAULT_CONFIG_PATH and DEFAULT_CONFIG_PATH.exists():
+        return DEFAULT_CONFIG_PATH
+    raise FileNotFoundError(
+        "Config file was not found. "
+        f"Tried: {config_path} and {DEFAULT_CONFIG_PATH}"
+    )
+
 
 def load_config(config_path: Path) -> Dict[str, Any]:
-    with config_path.open() as f:
+    resolved_path = resolve_config_path(config_path)
+    with resolved_path.open() as f:
         return json.load(f)
 
 
@@ -73,7 +89,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config",
         type=Path,
+
         default=Path("/data/config.json"),
+
         help=(
             "Path to JSON configuration file describing inputs and outputs "
             "(default: /data/config.json)."
