@@ -73,8 +73,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config",
         type=Path,
-        required=True,
-        help="Path to JSON configuration file describing inputs and outputs.",
+        default=Path("/data/config.json"),
+        help=(
+            "Path to JSON configuration file describing inputs and outputs "
+            "(default: /data/config.json)."
+        ),
     )
     parser.add_argument(
         "--executed-dir",

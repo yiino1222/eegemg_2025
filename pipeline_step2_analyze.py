@@ -2203,10 +2203,18 @@ def make_psd_output_dirs(output_dir, psd_type):
     output_dir = os.path.join(output_dir, f'PSD_{psd_type}')
     os.makedirs(os.path.join(output_dir, 'pdf'), exist_ok=True)
     
+def resolve_result_dir(faster_dir, result_dir_name):
+    result_dir = Path(faster_dir)
+    if result_dir.name != result_dir_name:
+        result_dir = result_dir / result_dir_name
+    return result_dir
+
+
 def extract_raw_EEG_n_EMG(faster_dir,result_dir_name,device_label,epoch_range):
     print("extract_EEG_n_EMG")
-    EEG_raw=pd.read_pickle(os.path.join(faster_dir,result_dir_name,"pkl",f"{device_label}_EEG.pkl"))
-    EMG_raw=pd.read_pickle(os.path.join(faster_dir,result_dir_name,"pkl",f"{device_label}_EMG.pkl"))
+    result_dir = resolve_result_dir(faster_dir, result_dir_name)
+    EEG_raw=pd.read_pickle(os.path.join(result_dir,"pkl",f"{device_label}_EEG.pkl"))
+    EMG_raw=pd.read_pickle(os.path.join(result_dir,"pkl",f"{device_label}_EMG.pkl"))
     EEG_selected=EEG_raw[epoch_range]
     EMG_selected=EMG_raw[epoch_range]
     return EEG_selected,EMG_selected
@@ -2262,8 +2270,8 @@ def make_summary_stats(mouse_info_df, epoch_range, epoch_len_sec, stage_ext,is_c
 
         # read a stage file
         print_log(f'[{i+1}] Reading stage: {faster_dir} {device_label} {stage_ext}')
-        stage_call = et.read_stages(os.path.join(
-            faster_dir, result_dir_name), device_label, stage_ext)
+        result_dir = resolve_result_dir(faster_dir, result_dir_name)
+        stage_call = et.read_stages(str(result_dir), device_label, stage_ext)
         print(len(stage_call))
         stage_call = stage_call[epoch_range]
         epoch_num_in_range = len(stage_call)
@@ -2481,7 +2489,7 @@ def analyze_project(prj_dir: Path, output_dir_name: str, epoch_len_sec: int, res
     if not faster_dir_list:
         raise ValueError("No FASTER2 result directories were found.")
 
-    output_root = prj_dir.with_name(output_dir_name)
+    output_root = prj_dir / "data" / output_dir_name
     output_root.mkdir(parents=True, exist_ok=True)
 
     mouse_info = collect_mouse_info_df(faster_dir_list, epoch_len_sec)
