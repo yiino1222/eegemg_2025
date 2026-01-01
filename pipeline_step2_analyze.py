@@ -804,6 +804,7 @@ def draw_swtrans_profile_individual(stagetime_stats, epoch_len_sec, output_dir):
     stagetime_df = stagetime_stats['stagetime']
     swtrans_profile_list = stagetime_stats['swtrans_profile']
     for i, profile in enumerate(swtrans_profile_list):
+        profile = np.asarray(profile)
         x_max = profile.shape[1]
         x = np.arange(x_max)
         fig = Figure(figsize=(13, 6))
