@@ -89,7 +89,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config",
         type=Path,
+
+
         default=DEFAULT_CONFIG_PATH,
+
         help=(
             "Path to JSON configuration file describing inputs and outputs "
             "(default: /data/config.json)."
