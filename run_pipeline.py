@@ -90,6 +90,7 @@ if __name__ == "__main__":
         "--config",
         type=Path,
 
+
         default=DEFAULT_CONFIG_PATH,
 
         help=(

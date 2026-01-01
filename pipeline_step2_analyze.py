@@ -267,8 +267,9 @@ def hourly_bout_profile(bout_df, epoch_len_sec):
 
     # 元のデータフレームと結合し、欠けている組み合わせを補完
     bout_profile_df = pd.merge(complete_df, bout_profile_df, on=['hour', 'stage'], how='left')
-    bout_profile_df['bout_count'].fillna(0, inplace=True)
-    bout_profile_df['mean_duration_sec'].fillna(0, inplace=True)
+    bout_profile_df[['bout_count', 'mean_duration_sec']] = (
+        bout_profile_df[['bout_count', 'mean_duration_sec']].fillna(0)
+    )
     
     return bout_profile_df
 
@@ -615,10 +616,9 @@ def _set_common_features_stagetime_profile_rem(ax, x_max):
 def draw_stagetime_profile_individual(stagetime_stats, epoch_len_sec, output_dir):
     stagetime_df = stagetime_stats['stagetime']
     stagetime_profile_list = stagetime_stats['stagetime_profile']
-    epoch_num = stagetime_stats['epoch_num_in_range']
-    x_max = epoch_num*epoch_len_sec/3600
-    x = np.arange(x_max)
     for i, profile in enumerate(stagetime_profile_list):
+        x_max = profile.shape[1]
+        x = np.arange(x_max)
         fig = Figure(figsize=(13, 6))
         ax1 = fig.add_subplot(311, xmargin=0, ymargin=0)
         ax2 = fig.add_subplot(312, xmargin=0, ymargin=0)
@@ -662,8 +662,7 @@ def draw_stagetime_profile_grouped(stagetime_stats, epoch_len_sec, output_dir):
             np.std, 0, stagetime_profile_mat[bidx])
         stagetime_profile_stats_list.append(
             np.array([stagetime_profile_mean, stagetime_profile_sd]))
-    epoch_num = stagetime_stats['epoch_num_in_range']
-    x_max = epoch_num*epoch_len_sec/3600
+    x_max = stagetime_profile_mat.shape[-1]
     x = np.arange(x_max)
     if len(mouse_groups_set) > 1:
         # contrast to group index = 0
