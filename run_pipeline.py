@@ -90,7 +90,7 @@ if __name__ == "__main__":
         "--config",
         type=Path,
 
-        default=Path("/data/config.json"),
+        default=DEFAULT_CONFIG_PATH,
 
         help=(
             "Path to JSON configuration file describing inputs and outputs "

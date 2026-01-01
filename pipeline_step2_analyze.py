@@ -2256,6 +2256,7 @@ def make_summary_stats(mouse_info_df, epoch_range, epoch_len_sec, stage_ext,is_c
     EMG_raw_list=[]
     stage_call_list=[]
 
+    total_mice = len(mouse_info_df)
     for i, r in mouse_info_df.iterrows():
         device_label = r['Device label'].strip()
         mouse_group = r['Mouse group'].strip()
@@ -2269,16 +2270,28 @@ def make_summary_stats(mouse_info_df, epoch_range, epoch_len_sec, stage_ext,is_c
             continue
 
         # read a stage file
-        print_log(f'[{i+1}] Reading stage: {faster_dir} {device_label} {stage_ext}')
+        print_log(f'[{i+1}/{total_mice}] Reading stage: {faster_dir} {device_label} {stage_ext}')
         result_dir = resolve_result_dir(faster_dir, result_dir_name)
         stage_call = et.read_stages(str(result_dir), device_label, stage_ext)
-        print(len(stage_call))
-        stage_call = stage_call[epoch_range]
+        stage_len = len(stage_call)
+        if isinstance(epoch_range, range):
+            epoch_end = min(epoch_range.stop, stage_len)
+            effective_epoch_range = range(epoch_range.start, epoch_end, epoch_range.step)
+        elif isinstance(epoch_range, slice):
+            stop = epoch_range.stop if epoch_range.stop is not None else stage_len
+            effective_epoch_range = slice(epoch_range.start, min(stop, stage_len), epoch_range.step)
+        else:
+            effective_epoch_range = [idx for idx in epoch_range if idx < stage_len]
+        if stage_len < (epoch_range.stop if isinstance(epoch_range, range) else stage_len):
+            print_log(
+                f'[{i+1}/{total_mice}] Trimming epoch range to {stage_len} stages '
+                f'for {faster_dir} {device_label}.'
+            )
+        stage_call = stage_call[effective_epoch_range]
         epoch_num_in_range = len(stage_call)
-        print(len(stage_call))
         
         #extract_raw_EEG_n_EMG
-        eeg,emg=extract_raw_EEG_n_EMG(faster_dir,result_dir_name,device_label,epoch_range)
+        eeg,emg=extract_raw_EEG_n_EMG(faster_dir,result_dir_name,device_label,effective_epoch_range)
         EEG_raw_list.append(eeg)
         EMG_raw_list.append(emg)
 
