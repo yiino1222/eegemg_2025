@@ -70,11 +70,19 @@ def make_psd_profile(psd_info_list, sample_freq, epoch_len_sec, psd_type='norm',
 
         # Default mask
         if mask is None:
-            mask = np.full(len(psd_info['bidx_target']), True)
+            current_mask = np.full(len(psd_info['bidx_target']), True)
+        else:
+            current_len = len(psd_info['bidx_target'])
+            if len(mask) >= current_len:
+                current_mask = mask[:current_len]
+            else:
+                current_mask = np.concatenate(
+                    [mask, np.full(current_len - len(mask), False)]
+                )
 
-        bidx_rem_target = psd_info['bidx_rem'] & psd_info['bidx_target'] & mask
-        bidx_nrem_target = psd_info['bidx_nrem'] & psd_info['bidx_target'] & mask
-        bidx_wake_target = psd_info['bidx_wake'] & psd_info['bidx_target'] & mask
+        bidx_rem_target = psd_info['bidx_rem'] & psd_info['bidx_target'] & current_mask
+        bidx_nrem_target = psd_info['bidx_nrem'] & psd_info['bidx_target'] & current_mask
+        bidx_wake_target = psd_info['bidx_wake'] & psd_info['bidx_target'] & current_mask
 
         psd_summary_rem = _psd_summary_by_bidx(bidx_rem_target)
         psd_summary_nrem = _psd_summary_by_bidx(bidx_nrem_target)
@@ -96,9 +104,9 @@ def make_psd_profile(psd_info_list, sample_freq, epoch_len_sec, psd_type='norm',
                 hour_mask = np.zeros(total_epochs, dtype=bool)
                 hour_mask[hour * epochs_per_hour:(hour + 1) * epochs_per_hour] = True
 
-                bidx_rem_hourly = (psd_info['stage_call'] == "REM") & mask & hour_mask
-                bidx_nrem_hourly = (psd_info['stage_call'] == "NREM") & mask & hour_mask
-                bidx_wake_hourly = (psd_info['stage_call'] == "WAKE") & mask & hour_mask
+                bidx_rem_hourly = (psd_info['stage_call'] == "REM") & current_mask & hour_mask
+                bidx_nrem_hourly = (psd_info['stage_call'] == "NREM") & current_mask & hour_mask
+                bidx_wake_hourly = (psd_info['stage_call'] == "WAKE") & current_mask & hour_mask
 
                 psd_summary_rem_hourly = _psd_summary_by_bidx(bidx_rem_hourly)
                 psd_summary_nrem_hourly = _psd_summary_by_bidx(bidx_nrem_hourly)
