@@ -447,8 +447,15 @@ def process_stats_path_list(analyzed_dir_list,vehicle_path,rapalog_path):
     #vehicle_path="vehicle_84h_before_24h_after_60h/stagetime_stats.npy"
     #rapalog_path="rapalog_84h_before_24h_after_60h/stagetime_stats.npy"
     for dir in analyzed_dir_list:
-        stats_list_vehicle.append(os.path.join(dir,vehicle_path))
-        stats_list_rapalog.append(os.path.join(dir,rapalog_path))
+        vehicle_stats = os.path.join(dir, vehicle_path)
+        rapalog_stats = os.path.join(dir, rapalog_path)
+        fallback_stats = os.path.join(dir, "stagetime_stats.npy")
+        if not os.path.exists(vehicle_stats) and os.path.exists(fallback_stats):
+            vehicle_stats = fallback_stats
+        if not os.path.exists(rapalog_stats) and os.path.exists(fallback_stats):
+            rapalog_stats = fallback_stats
+        stats_list_vehicle.append(vehicle_stats)
+        stats_list_rapalog.append(rapalog_stats)
     return stats_list_vehicle,stats_list_rapalog
 
 def process_psd_info_path_list(analyzed_dir_list):
@@ -459,8 +466,15 @@ def process_psd_info_path_list(analyzed_dir_list):
     #vehicle_path="vehicle_84h_before_24h_after_60h/stagetime_stats.npy"
     #rapalog_path="rapalog_84h_before_24h_after_60h/stagetime_stats.npy"
     for dir in analyzed_dir_list:
-        psd_info_list_vehicle.append(os.path.join(dir,vehicle_path))
-        psd_info_list_rapalog.append(os.path.join(dir,rapalog_path))
+        vehicle_info = os.path.join(dir, vehicle_path)
+        rapalog_info = os.path.join(dir, rapalog_path)
+        fallback_info = os.path.join(dir, "psd_info_list.pkl")
+        if not os.path.exists(vehicle_info) and os.path.exists(fallback_info):
+            vehicle_info = fallback_info
+        if not os.path.exists(rapalog_info) and os.path.exists(fallback_info):
+            rapalog_info = fallback_info
+        psd_info_list_vehicle.append(vehicle_info)
+        psd_info_list_rapalog.append(rapalog_info)
     return psd_info_list_vehicle,psd_info_list_rapalog
 
 def merge_individual_df(analyzed_dir_list, vehicle_path, rapalog_path, epoch_len_sec, ample_freq):
@@ -474,6 +488,9 @@ def merge_individual_df(analyzed_dir_list, vehicle_path, rapalog_path, epoch_len
     
     # Vehicleデータの処理
     for stats in stats_list_vehicle:
+        if not os.path.exists(stats):
+            print(f"[WARN] Missing stats file, skipping: {stats}")
+            continue
         df, df2, df3 = make_df_from_summary_dic(stats)
         df = add_index(df, "drug", "vehicle")
         meta_merge_list.append(df)
@@ -483,12 +500,18 @@ def merge_individual_df(analyzed_dir_list, vehicle_path, rapalog_path, epoch_len
         meta_merge_list3.append(df3)
     
     for psd_info_list in psd_info_list_vehicle:
+        if not os.path.exists(psd_info_list):
+            print(f"[WARN] Missing PSD info file, skipping: {psd_info_list}")
+            continue
         df4 = extract_psd_from_psdinfo(psd_info_list, epoch_len_sec, ample_freq)
         df4 = add_index(df4, "drug", "vehicle")
         psd_start_n_end_list.append(df4)
     
     # Rapalogデータの処理
     for stats in stats_list_rapalog:
+        if not os.path.exists(stats):
+            print(f"[WARN] Missing stats file, skipping: {stats}")
+            continue
         df, df2, df3 = make_df_from_summary_dic(stats)
         df = add_index(df, "drug", "rapalog")
         meta_merge_list.append(df)
@@ -498,15 +521,20 @@ def merge_individual_df(analyzed_dir_list, vehicle_path, rapalog_path, epoch_len
         meta_merge_list3.append(df3)
     
     for psd_info_list in psd_info_list_rapalog:
+        if not os.path.exists(psd_info_list):
+            print(f"[WARN] Missing PSD info file, skipping: {psd_info_list}")
+            continue
         df4 = extract_psd_from_psdinfo(psd_info_list, epoch_len_sec, ample_freq)
         df4 = add_index(df4, "drug", "rapalog")
         psd_start_n_end_list.append(df4)
     
     # pd.concatでリスト内のデータフレームを結合
+    if not meta_merge_list:
+        raise FileNotFoundError("No stagetime stats were found for merging.")
     meta_merge_df = pd.concat(meta_merge_list, ignore_index=False)
     meta_merge_df2 = pd.concat(meta_merge_list2, ignore_index=False)
     meta_merge_df3 = pd.concat(meta_merge_list3, ignore_index=False)
-    psd_start_n_end_df = pd.concat(psd_start_n_end_list, ignore_index=False)
+    psd_start_n_end_df = pd.concat(psd_start_n_end_list, ignore_index=False) if psd_start_n_end_list else pd.DataFrame()
     
     return meta_merge_df, meta_merge_df2, meta_merge_df3, psd_start_n_end_df
 

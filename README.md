@@ -20,7 +20,8 @@ This repository provides a pipeline for analyzing mouse EEG and EMG data recorde
 docker build -t eegemg-pipeline .
 ```
 
-2. Prepare a config file (see `pipeline.config.example.json`).
+2. Prepare a config file (see `pipeline.config.example.json`) and place it at
+   `/data/config.json` inside the container (mount it there from the host).
 
 3. Run all steps in sequence with a single command
 
@@ -28,8 +29,8 @@ docker build -t eegemg-pipeline .
 # Mount your data directory and config into the container
 docker run --rm \
   -v /your_project:/data \
-  -v /path/to/pipeline.json:/config/pipeline.json \
-  eegemg-pipeline --config /config/pipeline.json
+  -v /path/to/pipeline.json:/data/config.json \
+  eegemg-pipeline
 ```
 
 The pipeline now executes pure Python scripts (no notebook dependency):
