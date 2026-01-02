@@ -530,7 +530,10 @@ def merge_individual_df(analyzed_dir_list, vehicle_path, rapalog_path, epoch_len
     
     # pd.concatでリスト内のデータフレームを結合
     if not meta_merge_list:
-        raise FileNotFoundError("No stagetime stats were found for merging.")
+        print("[WARN] No stagetime stats were found for merging; skipping merge.")
+        empty_df = pd.DataFrame()
+        return empty_df, empty_df, empty_df, pd.DataFrame()
+
     meta_merge_df = pd.concat(meta_merge_list, ignore_index=False)
     meta_merge_df2 = pd.concat(meta_merge_list2, ignore_index=False)
     meta_merge_df3 = pd.concat(meta_merge_list3, ignore_index=False)
@@ -1337,6 +1340,14 @@ def merge_n_plot(
 
     #merge analyzed data
     meta_stage_df,meta_sw_trans_df,meta_stage_bout_df,meta_psd_start_end_df=merge_sleep_stage_df(analyzed_dir_list,epoch_len_sec,sample_freq)
+    if meta_stage_df.empty:
+        print("[WARN] No merged stagetime data available; skipping plot generation.")
+        return {
+            "meta_stage_df": meta_stage_df,
+            "meta_sw_trans_df": meta_sw_trans_df,
+            "meta_stage_bout_df": meta_stage_bout_df,
+            "meta_psd_start_end_df": meta_psd_start_end_df,
+        }
     merge_psd_ts_df,merge_psd_profile_df=merge_psd_df(analyzed_dir_list)
     
     #rename group if needed
