@@ -90,9 +90,18 @@ def collect_mouse_info_df(faster_dir_list, epoch_len_sec):
     epoch_num_stored = None
     sample_freq_stored = None
     for faster_dir in faster_dir_list:
-        data_dir = os.path.join(faster_dir, 'data')
+        data_dir = Path(faster_dir) / "data"
+        if not (data_dir / "exp.info.csv").exists():
+            sibling_data_dir = Path(faster_dir).parent / "data"
+            if (sibling_data_dir / "exp.info.csv").exists():
+                data_dir = sibling_data_dir
+            else:
+                raise FileNotFoundError(
+                    "exp.info.csv was not found under expected data directories. "
+                    f"Tried: {data_dir / 'exp.info.csv'} and {sibling_data_dir / 'exp.info.csv'}"
+                )
 
-        exp_info_df = stage.read_exp_info(data_dir)
+        exp_info_df = stage.read_exp_info(str(data_dir))
         # not used variable: rack_label, start_datetime, end_datetime
         # pylint: disable=unused-variable
         (epoch_num, sample_freq, exp_label, rack_label, \
@@ -106,7 +115,7 @@ def collect_mouse_info_df(faster_dir_list, epoch_len_sec):
         else:
             sample_freq_stored = sample_freq
 
-        m_info = stage.read_mouse_info(data_dir)
+        m_info = stage.read_mouse_info(str(data_dir))
         m_info['Experiment label'] = exp_label
         m_info['FASTER_DIR'] = faster_dir
         mouse_info_df = pd.concat([mouse_info_df, m_info])
@@ -145,9 +154,15 @@ def stagetime_profile(stage_call, epoch_len_sec):
         [np.array(3, len(stage_calls))] -- each row corrensponds the
         hourly profiles of stages over the recording (rem, nrem, wake)
     """
-    print(stage_call.shape)
-    sm = stage_call.reshape(-1, int(3600/epoch_len_sec)
-                            )  # 60 min(3600 sec) bin
+    bin_size = int(3600 / epoch_len_sec)
+    usable_len = (len(stage_call) // bin_size) * bin_size
+    if usable_len == 0:
+        print_log("Stage call length is shorter than one hour; skipping profile.")
+        return np.zeros((3, 0))
+    if usable_len != len(stage_call):
+        print_log(f"Trimming stage calls to {usable_len} for hourly profile.")
+        stage_call = stage_call[:usable_len]
+    sm = stage_call.reshape(-1, bin_size)  # 60 min(3600 sec) bin
     rem = np.array([np.sum(s == 'REM')*epoch_len_sec /
                     60 for s in sm])  # unit minuite
     nrem = np.array([np.sum(s == 'NREM')*epoch_len_sec /
@@ -171,8 +186,16 @@ def stagetime_circadian_profile(stage_call, epoch_len_sec):
                             x 3rd axis [24 hours]
     """
     # 60 min(3600 sec) bin
-    print(stage_call.shape)
-    sm = stage_call.reshape(-1, int(3600/epoch_len_sec))
+    bin_size = int(3600 / epoch_len_sec)
+    day_size = bin_size * 24
+    usable_len = (len(stage_call) // day_size) * day_size
+    if usable_len == 0:
+        print_log("Stage call length is shorter than one day; skipping circadian profile.")
+        return np.zeros((2, 3, 0))
+    if usable_len != len(stage_call):
+        print_log(f"Trimming stage calls to {usable_len} for circadian profile.")
+        stage_call = stage_call[:usable_len]
+    sm = stage_call.reshape(-1, bin_size)
     rem = np.array([np.sum(s == 'REM')*epoch_len_sec /
                     60 for s in sm])  # unit minuite
     nrem = np.array([np.sum(s == 'NREM')*epoch_len_sec /
@@ -244,8 +267,9 @@ def hourly_bout_profile(bout_df, epoch_len_sec):
 
     # 元のデータフレームと結合し、欠けている組み合わせを補完
     bout_profile_df = pd.merge(complete_df, bout_profile_df, on=['hour', 'stage'], how='left')
-    bout_profile_df['bout_count'].fillna(0, inplace=True)
-    bout_profile_df['mean_duration_sec'].fillna(0, inplace=True)
+    bout_profile_df[['bout_count', 'mean_duration_sec']] = (
+        bout_profile_df[['bout_count', 'mean_duration_sec']].fillna(0)
+    )
     
     return bout_profile_df
 
@@ -455,10 +479,22 @@ def swtrans_profile(stage_call, epoch_len_sec):
     tws = np.append(tws, 0)
     tww = np.append(tww, 0)
 
-    tsw_mat = tsw.reshape(-1, int(3600/epoch_len_sec))  # 60 min(3600 sec) bin
-    tss_mat = tss.reshape(-1, int(3600/epoch_len_sec))
-    tws_mat = tws.reshape(-1, int(3600/epoch_len_sec))
-    tww_mat = tww.reshape(-1, int(3600/epoch_len_sec))
+    bin_size = int(3600 / epoch_len_sec)
+    usable_len = (len(tsw) // bin_size) * bin_size
+    if usable_len == 0:
+        print_log("Stage call length is shorter than one hour; skipping swtrans profile.")
+        return [np.array([]), np.array([])]
+    if usable_len != len(tsw):
+        print_log(f"Trimming stage calls to {usable_len} for swtrans profile.")
+        tsw = tsw[:usable_len]
+        tss = tss[:usable_len]
+        tws = tws[:usable_len]
+        tww = tww[:usable_len]
+
+    tsw_mat = tsw.reshape(-1, bin_size)  # 60 min(3600 sec) bin
+    tss_mat = tss.reshape(-1, bin_size)
+    tws_mat = tws.reshape(-1, bin_size)
+    tww_mat = tww.reshape(-1, bin_size)
 
     hourly_tsw = np.apply_along_axis(np.sum, 1, tsw_mat) 
     hourly_tss = np.apply_along_axis(np.sum, 1, tss_mat) 
@@ -580,10 +616,9 @@ def _set_common_features_stagetime_profile_rem(ax, x_max):
 def draw_stagetime_profile_individual(stagetime_stats, epoch_len_sec, output_dir):
     stagetime_df = stagetime_stats['stagetime']
     stagetime_profile_list = stagetime_stats['stagetime_profile']
-    epoch_num = stagetime_stats['epoch_num_in_range']
-    x_max = epoch_num*epoch_len_sec/3600
-    x = np.arange(x_max)
     for i, profile in enumerate(stagetime_profile_list):
+        x_max = profile.shape[1]
+        x = np.arange(x_max)
         fig = Figure(figsize=(13, 6))
         ax1 = fig.add_subplot(311, xmargin=0, ymargin=0)
         ax2 = fig.add_subplot(312, xmargin=0, ymargin=0)
@@ -627,8 +662,7 @@ def draw_stagetime_profile_grouped(stagetime_stats, epoch_len_sec, output_dir):
             np.std, 0, stagetime_profile_mat[bidx])
         stagetime_profile_stats_list.append(
             np.array([stagetime_profile_mean, stagetime_profile_sd]))
-    epoch_num = stagetime_stats['epoch_num_in_range']
-    x_max = epoch_num*epoch_len_sec/3600
+    x_max = stagetime_profile_mat.shape[-1]
     x = np.arange(x_max)
     if len(mouse_groups_set) > 1:
         # contrast to group index = 0
@@ -719,8 +753,6 @@ def draw_stagetime_profile_grouped(stagetime_stats, epoch_len_sec, output_dir):
         csv_df = pd.DataFrame()
         mgs_t = mouse_groups_set[g_idx] # treatment
         num = np.sum(bidx_group_list[g_idx])
-        x_max = epoch_num*epoch_len_sec/3600
-        x = np.arange(x_max)
         fig = Figure(figsize=(13, 6))
         ax1 = fig.add_subplot(311, xmargin=0, ymargin=0)
         ax2 = fig.add_subplot(312, xmargin=0, ymargin=0)
@@ -769,10 +801,10 @@ def draw_stagetime_profile_grouped(stagetime_stats, epoch_len_sec, output_dir):
 def draw_swtrans_profile_individual(stagetime_stats, epoch_len_sec, output_dir):
     stagetime_df = stagetime_stats['stagetime']
     swtrans_profile_list = stagetime_stats['swtrans_profile']
-    epoch_num = stagetime_stats['epoch_num_in_range']
-    x_max = epoch_num*epoch_len_sec/3600
-    x = np.arange(x_max)
     for i, profile in enumerate(swtrans_profile_list):
+        profile = np.asarray(profile)
+        x_max = profile.shape[1]
+        x = np.arange(x_max)
         fig = Figure(figsize=(13, 6))
         ax1 = fig.add_subplot(211, xmargin=0, ymargin=0)
         ax2 = fig.add_subplot(212, xmargin=0, ymargin=0)
@@ -815,8 +847,7 @@ def draw_swtrans_profile_grouped(stagetime_stats, epoch_len_sec, output_dir):
                 np.nanstd, 0, swtrans_profile_mat[bidx])
             swtrans_profile_stats_list.append(
                 np.array([swtrans_profile_mean, swtrans_profile_sd]))
-    epoch_num = stagetime_stats['epoch_num_in_range']
-    x_max = epoch_num*epoch_len_sec/3600
+    x_max = swtrans_profile_mat.shape[-1]
     x = np.arange(x_max)
     if len(mouse_groups_set) > 1:
         # contrast to group index = 0
@@ -873,7 +904,7 @@ def draw_swtrans_profile_grouped(stagetime_stats, epoch_len_sec, output_dir):
         g_idx = 0
 
         num = np.sum(bidx_group_list[g_idx])
-        x_max = epoch_num*epoch_len_sec/3600
+        x_max = swtrans_profile_mat.shape[-1]
         x = np.arange(x_max)
         fig = Figure(figsize=(13, 6))
         ax1 = fig.add_subplot(211, xmargin=0, ymargin=0)
@@ -2194,10 +2225,18 @@ def make_psd_output_dirs(output_dir, psd_type):
     output_dir = os.path.join(output_dir, f'PSD_{psd_type}')
     os.makedirs(os.path.join(output_dir, 'pdf'), exist_ok=True)
     
+def resolve_result_dir(faster_dir, result_dir_name):
+    result_dir = Path(faster_dir)
+    if result_dir.name != result_dir_name:
+        result_dir = result_dir / result_dir_name
+    return result_dir
+
+
 def extract_raw_EEG_n_EMG(faster_dir,result_dir_name,device_label,epoch_range):
     print("extract_EEG_n_EMG")
-    EEG_raw=pd.read_pickle(os.path.join(faster_dir,result_dir_name,"pkl",f"{device_label}_EEG.pkl"))
-    EMG_raw=pd.read_pickle(os.path.join(faster_dir,result_dir_name,"pkl",f"{device_label}_EMG.pkl"))
+    result_dir = resolve_result_dir(faster_dir, result_dir_name)
+    EEG_raw=pd.read_pickle(os.path.join(result_dir,"pkl",f"{device_label}_EEG.pkl"))
+    EMG_raw=pd.read_pickle(os.path.join(result_dir,"pkl",f"{device_label}_EMG.pkl"))
     EEG_selected=EEG_raw[epoch_range]
     EMG_selected=EMG_raw[epoch_range]
     return EEG_selected,EMG_selected
@@ -2239,6 +2278,7 @@ def make_summary_stats(mouse_info_df, epoch_range, epoch_len_sec, stage_ext,is_c
     EMG_raw_list=[]
     stage_call_list=[]
 
+    total_mice = len(mouse_info_df)
     for i, r in mouse_info_df.iterrows():
         device_label = r['Device label'].strip()
         mouse_group = r['Mouse group'].strip()
@@ -2252,16 +2292,28 @@ def make_summary_stats(mouse_info_df, epoch_range, epoch_len_sec, stage_ext,is_c
             continue
 
         # read a stage file
-        print_log(f'[{i+1}] Reading stage: {faster_dir} {device_label} {stage_ext}')
-        stage_call = et.read_stages(os.path.join(
-            faster_dir, result_dir_name), device_label, stage_ext)
-        print(len(stage_call))
-        stage_call = stage_call[epoch_range]
+        print_log(f'[{i+1}/{total_mice}] Reading stage: {faster_dir} {device_label} {stage_ext}')
+        result_dir = resolve_result_dir(faster_dir, result_dir_name)
+        stage_call = et.read_stages(str(result_dir), device_label, stage_ext)
+        stage_len = len(stage_call)
+        if isinstance(epoch_range, range):
+            epoch_end = min(epoch_range.stop, stage_len)
+            effective_epoch_range = range(epoch_range.start, epoch_end, epoch_range.step)
+        elif isinstance(epoch_range, slice):
+            stop = epoch_range.stop if epoch_range.stop is not None else stage_len
+            effective_epoch_range = slice(epoch_range.start, min(stop, stage_len), epoch_range.step)
+        else:
+            effective_epoch_range = [idx for idx in epoch_range if idx < stage_len]
+        if stage_len < (epoch_range.stop if isinstance(epoch_range, range) else stage_len):
+            print_log(
+                f'[{i+1}/{total_mice}] Trimming epoch range to {stage_len} stages '
+                f'for {faster_dir} {device_label}.'
+            )
+        stage_call = stage_call[effective_epoch_range]
         epoch_num_in_range = len(stage_call)
-        print(len(stage_call))
         
         #extract_raw_EEG_n_EMG
-        eeg,emg=extract_raw_EEG_n_EMG(faster_dir,result_dir_name,device_label,epoch_range)
+        eeg,emg=extract_raw_EEG_n_EMG(faster_dir,result_dir_name,device_label,effective_epoch_range)
         EEG_raw_list.append(eeg)
         EMG_raw_list.append(emg)
 
@@ -2472,22 +2524,39 @@ def analyze_project(prj_dir: Path, output_dir_name: str, epoch_len_sec: int, res
     if not faster_dir_list:
         raise ValueError("No FASTER2 result directories were found.")
 
-    output_root = prj_dir.with_name(output_dir_name)
-    output_root.mkdir(parents=True, exist_ok=True)
+    def _output_root_for_faster_dir(faster_dir: str) -> Path:
+        faster_path = Path(faster_dir)
+        if faster_path.name == result_dir_name:
+            faster_path = faster_path.parent
+        if "raw_data" in faster_path.parts:
+            raw_data_index = faster_path.parts.index("raw_data")
+            base_dir = Path(*faster_path.parts[:raw_data_index]) or prj_dir.parent
+            rel_parts = list(faster_path.parts[raw_data_index + 1 :])
+            if rel_parts:
+                last_part = rel_parts[-1]
+                if last_part.startswith("raw_data"):
+                    suffix = last_part[len("raw_data") :]
+                    rel_parts[-1] = f"{output_dir_name}{suffix}"
+            rel_path = Path(*rel_parts)
+            return base_dir / output_dir_name / rel_path
+        return prj_dir / output_dir_name / faster_path.name
 
-    mouse_info = collect_mouse_info_df(faster_dir_list, epoch_len_sec)
-    epoch_range = range(0, mouse_info["epoch_num"])
+    for faster_dir in faster_dir_list:
+        output_root = _output_root_for_faster_dir(faster_dir)
+        output_root.mkdir(parents=True, exist_ok=True)
+        mouse_info = collect_mouse_info_df([faster_dir], epoch_len_sec)
+        epoch_range = range(0, mouse_info["epoch_num"])
 
-    do_analysis(
-        faster_dir_list,
-        str(output_root),
-        stage_ext=None,
-        vol_unit="V",
-        epoch_range=epoch_range,
-        epoch_len_sec=epoch_len_sec,
-        is_circadian=False,
-        result_dir_name=result_dir_name,
-    )
+        do_analysis(
+            [faster_dir],
+            str(output_root),
+            stage_ext=None,
+            vol_unit="V",
+            epoch_range=epoch_range,
+            epoch_len_sec=epoch_len_sec,
+            is_circadian=False,
+            result_dir_name=result_dir_name,
+        )
 
 
 def main() -> None:
