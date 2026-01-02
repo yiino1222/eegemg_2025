@@ -2526,34 +2526,39 @@ def analyze_project(prj_dir: Path, output_dir_name: str, epoch_len_sec: int, res
     if not faster_dir_list:
         raise ValueError("No FASTER2 result directories were found.")
 
-    if "raw_data" in prj_dir.parts:
-        raw_data_index = prj_dir.parts.index("raw_data")
-        base_dir = Path(*prj_dir.parts[:raw_data_index]) or prj_dir.parent
-        rel_parts = list(prj_dir.parts[raw_data_index + 1 :])
-        if rel_parts:
-            last_part = rel_parts[-1]
-            if last_part.startswith("raw_data"):
-                suffix = last_part[len("raw_data") :]
-                rel_parts[-1] = f"{output_dir_name}{suffix}"
-        rel_path = Path(*rel_parts)
-        output_root = base_dir / output_dir_name / rel_path
-    else:
-        output_root = prj_dir / output_dir_name
-    output_root.mkdir(parents=True, exist_ok=True)
+    def _output_root_for_faster_dir(faster_dir: str) -> Path:
+        faster_path = Path(faster_dir)
+        if faster_path.name == result_dir_name:
+            faster_path = faster_path.parent
+        if "raw_data" in faster_path.parts:
+            raw_data_index = faster_path.parts.index("raw_data")
+            base_dir = Path(*faster_path.parts[:raw_data_index]) or prj_dir.parent
+            rel_parts = list(faster_path.parts[raw_data_index + 1 :])
+            if rel_parts:
+                last_part = rel_parts[-1]
+                if last_part.startswith("raw_data"):
+                    suffix = last_part[len("raw_data") :]
+                    rel_parts[-1] = f"{output_dir_name}{suffix}"
+            rel_path = Path(*rel_parts)
+            return base_dir / output_dir_name / rel_path
+        return prj_dir / output_dir_name / faster_path.name
 
-    mouse_info = collect_mouse_info_df(faster_dir_list, epoch_len_sec)
-    epoch_range = range(0, mouse_info["epoch_num"])
+    for faster_dir in faster_dir_list:
+        output_root = _output_root_for_faster_dir(faster_dir)
+        output_root.mkdir(parents=True, exist_ok=True)
+        mouse_info = collect_mouse_info_df([faster_dir], epoch_len_sec)
+        epoch_range = range(0, mouse_info["epoch_num"])
 
-    do_analysis(
-        faster_dir_list,
-        str(output_root),
-        stage_ext=None,
-        vol_unit="V",
-        epoch_range=epoch_range,
-        epoch_len_sec=epoch_len_sec,
-        is_circadian=False,
-        result_dir_name=result_dir_name,
-    )
+        do_analysis(
+            [faster_dir],
+            str(output_root),
+            stage_ext=None,
+            vol_unit="V",
+            epoch_range=epoch_range,
+            epoch_len_sec=epoch_len_sec,
+            is_circadian=False,
+            result_dir_name=result_dir_name,
+        )
 
 
 def main() -> None:

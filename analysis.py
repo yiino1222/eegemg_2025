@@ -533,7 +533,6 @@ def merge_individual_df(analyzed_dir_list, vehicle_path, rapalog_path, epoch_len
         print("[WARN] No stagetime stats were found for merging; skipping merge.")
         empty_df = pd.DataFrame()
         return empty_df, empty_df, empty_df, pd.DataFrame()
-
     meta_merge_df = pd.concat(meta_merge_list, ignore_index=False)
     meta_merge_df2 = pd.concat(meta_merge_list2, ignore_index=False)
     meta_merge_df3 = pd.concat(meta_merge_list3, ignore_index=False)
