@@ -447,8 +447,15 @@ def process_stats_path_list(analyzed_dir_list,vehicle_path,rapalog_path):
     #vehicle_path="vehicle_84h_before_24h_after_60h/stagetime_stats.npy"
     #rapalog_path="rapalog_84h_before_24h_after_60h/stagetime_stats.npy"
     for dir in analyzed_dir_list:
-        stats_list_vehicle.append(os.path.join(dir,vehicle_path))
-        stats_list_rapalog.append(os.path.join(dir,rapalog_path))
+        vehicle_stats = os.path.join(dir, vehicle_path)
+        rapalog_stats = os.path.join(dir, rapalog_path)
+        fallback_stats = os.path.join(dir, "stagetime_stats.npy")
+        if not os.path.exists(vehicle_stats) and os.path.exists(fallback_stats):
+            vehicle_stats = fallback_stats
+        if not os.path.exists(rapalog_stats) and os.path.exists(fallback_stats):
+            rapalog_stats = fallback_stats
+        stats_list_vehicle.append(vehicle_stats)
+        stats_list_rapalog.append(rapalog_stats)
     return stats_list_vehicle,stats_list_rapalog
 
 def process_psd_info_path_list(analyzed_dir_list):
@@ -459,8 +466,15 @@ def process_psd_info_path_list(analyzed_dir_list):
     #vehicle_path="vehicle_84h_before_24h_after_60h/stagetime_stats.npy"
     #rapalog_path="rapalog_84h_before_24h_after_60h/stagetime_stats.npy"
     for dir in analyzed_dir_list:
-        psd_info_list_vehicle.append(os.path.join(dir,vehicle_path))
-        psd_info_list_rapalog.append(os.path.join(dir,rapalog_path))
+        vehicle_info = os.path.join(dir, vehicle_path)
+        rapalog_info = os.path.join(dir, rapalog_path)
+        fallback_info = os.path.join(dir, "psd_info_list.pkl")
+        if not os.path.exists(vehicle_info) and os.path.exists(fallback_info):
+            vehicle_info = fallback_info
+        if not os.path.exists(rapalog_info) and os.path.exists(fallback_info):
+            rapalog_info = fallback_info
+        psd_info_list_vehicle.append(vehicle_info)
+        psd_info_list_rapalog.append(rapalog_info)
     return psd_info_list_vehicle,psd_info_list_rapalog
 
 def merge_individual_df(analyzed_dir_list, vehicle_path, rapalog_path, epoch_len_sec, ample_freq):

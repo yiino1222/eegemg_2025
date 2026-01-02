@@ -2529,7 +2529,13 @@ def analyze_project(prj_dir: Path, output_dir_name: str, epoch_len_sec: int, res
     if "raw_data" in prj_dir.parts:
         raw_data_index = prj_dir.parts.index("raw_data")
         base_dir = Path(*prj_dir.parts[:raw_data_index]) or prj_dir.parent
-        rel_path = Path(*prj_dir.parts[raw_data_index + 1 :])
+        rel_parts = list(prj_dir.parts[raw_data_index + 1 :])
+        if rel_parts:
+            last_part = rel_parts[-1]
+            if last_part.startswith("raw_data"):
+                suffix = last_part[len("raw_data") :]
+                rel_parts[-1] = f"{output_dir_name}{suffix}"
+        rel_path = Path(*rel_parts)
         output_root = base_dir / output_dir_name / rel_path
     else:
         output_root = prj_dir / output_dir_name
