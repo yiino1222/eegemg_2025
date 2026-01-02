@@ -4,6 +4,7 @@
 from logging import getLogger
 from matplotlib.figure import Figure
 import os
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import faster2lib.eeg_tools as et
@@ -69,11 +70,19 @@ def make_psd_profile(psd_info_list, sample_freq, epoch_len_sec, psd_type='norm',
 
         # Default mask
         if mask is None:
-            mask = np.full(len(psd_info['bidx_target']), True)
+            current_mask = np.full(len(psd_info['bidx_target']), True)
+        else:
+            current_len = len(psd_info['bidx_target'])
+            if len(mask) >= current_len:
+                current_mask = mask[:current_len]
+            else:
+                current_mask = np.concatenate(
+                    [mask, np.full(current_len - len(mask), False)]
+                )
 
-        bidx_rem_target = psd_info['bidx_rem'] & psd_info['bidx_target'] & mask
-        bidx_nrem_target = psd_info['bidx_nrem'] & psd_info['bidx_target'] & mask
-        bidx_wake_target = psd_info['bidx_wake'] & psd_info['bidx_target'] & mask
+        bidx_rem_target = psd_info['bidx_rem'] & psd_info['bidx_target'] & current_mask
+        bidx_nrem_target = psd_info['bidx_nrem'] & psd_info['bidx_target'] & current_mask
+        bidx_wake_target = psd_info['bidx_wake'] & psd_info['bidx_target'] & current_mask
 
         psd_summary_rem = _psd_summary_by_bidx(bidx_rem_target)
         psd_summary_nrem = _psd_summary_by_bidx(bidx_nrem_target)
@@ -95,9 +104,9 @@ def make_psd_profile(psd_info_list, sample_freq, epoch_len_sec, psd_type='norm',
                 hour_mask = np.zeros(total_epochs, dtype=bool)
                 hour_mask[hour * epochs_per_hour:(hour + 1) * epochs_per_hour] = True
 
-                bidx_rem_hourly = (psd_info['stage_call'] == "REM") & mask & hour_mask
-                bidx_nrem_hourly = (psd_info['stage_call'] == "NREM") & mask & hour_mask
-                bidx_wake_hourly = (psd_info['stage_call'] == "WAKE") & mask & hour_mask
+                bidx_rem_hourly = (psd_info['stage_call'] == "REM") & current_mask & hour_mask
+                bidx_nrem_hourly = (psd_info['stage_call'] == "NREM") & current_mask & hour_mask
+                bidx_wake_hourly = (psd_info['stage_call'] == "WAKE") & current_mask & hour_mask
 
                 psd_summary_rem_hourly = _psd_summary_by_bidx(bidx_rem_hourly)
                 psd_summary_nrem_hourly = _psd_summary_by_bidx(bidx_nrem_hourly)
@@ -122,7 +131,10 @@ def make_psd_profile(psd_info_list, sample_freq, epoch_len_sec, psd_type='norm',
 
         # Fill missing values by interpolation
         hourly_psd_summary_df = hourly_psd_summary_df.groupby(['Mouse ID', 'Stage']).apply(
-            lambda group: group.interpolate(method='linear', limit_direction='both')
+            lambda group: group.infer_objects(copy=False).interpolate(
+                method='linear',
+                limit_direction='both',
+            )
         ).reset_index(drop=True)
 
         return psd_summary_df, hourly_psd_summary_df
@@ -168,14 +180,17 @@ def make_target_psd_info(mouse_info_df, epoch_range, epoch_len_sec, sample_freq,
 
 
         # read stage of the mouse
+        result_dir = Path(faster_dir)
+        if result_dir.name != result_dir_name:
+            result_dir = result_dir / result_dir_name
+        result_dir = str(result_dir)
         try:
-            stage_call, nan_eeg, outlier_eeg = et.read_stages_with_eeg_diagnosis(os.path.join(
-                faster_dir, result_dir_name), device_label, stage_ext)
+            stage_call, nan_eeg, outlier_eeg = et.read_stages_with_eeg_diagnosis(
+                result_dir, device_label, stage_ext)
         except IndexError:
             # Manually annotated stage files may not have diagnostic info
             LOGGER.info('NA and outlier information is not available in the stage file')
-            stage_call = et.read_stages(os.path.join(
-                faster_dir, result_dir_name), device_label, stage_ext)
+            stage_call = et.read_stages(result_dir, device_label, stage_ext)
             nan_eeg = np.repeat(0, len(stage_call))
             outlier_eeg = np.repeat(0, len(stage_call))
         epoch_num = len(stage_call)
@@ -186,8 +201,7 @@ def make_target_psd_info(mouse_info_df, epoch_range, epoch_len_sec, sample_freq,
         #    os.path.join(faster_dir, 'data'), device_label, sample_freq, epoch_len_sec,
         #    epoch_num, start_datetime)
         (eeg_vm_org, emg_vm_org, not_yet_pickled) = stage.read_voltage_matrices(
-            os.path.join(faster_dir, result_dir_name), device_label, sample_freq, epoch_len_sec,
-            epoch_num, start_datetime)
+            result_dir, device_label, sample_freq, epoch_len_sec, epoch_num, start_datetime)
 
 
         LOGGER.info('Preprocessing and calculating PSD')
@@ -213,20 +227,42 @@ def make_target_psd_info(mouse_info_df, epoch_range, epoch_len_sec, sample_freq,
         # good PSD should have the nan- and outlier-ratios of less than 1%
         bidx_good_psd = (nan_eeg < 0.01) & (outlier_eeg < 0.01)
 
+        if isinstance(epoch_range, range):
+            epoch_end = min(epoch_range.stop, epoch_num)
+            effective_epoch_range = range(epoch_range.start, epoch_end, epoch_range.step)
+        elif isinstance(epoch_range, slice):
+            stop = epoch_range.stop if epoch_range.stop is not None else epoch_num
+            effective_epoch_range = slice(epoch_range.start, min(stop, epoch_num), epoch_range.step)
+        else:
+            effective_epoch_range = [idx for idx in epoch_range if idx < epoch_num]
+
         # bidx_target: bidx for the good epochs in the selected range
         bidx_selected = np.repeat(False, epoch_num)
-        bidx_selected[epoch_range] = True
+        bidx_selected[effective_epoch_range] = True
         bidx_target = bidx_selected & bidx_good_psd & ~bidx_unknown
+
+        if isinstance(effective_epoch_range, range):
+            range_start = effective_epoch_range.start
+            range_stop = effective_epoch_range.stop
+            range_len = range_stop - range_start
+        elif isinstance(effective_epoch_range, slice):
+            range_start = effective_epoch_range.start or 0
+            range_stop = effective_epoch_range.stop or epoch_num
+            range_len = len(range(range_start, range_stop, effective_epoch_range.step or 1))
+        else:
+            range_start = min(effective_epoch_range) if effective_epoch_range else 0
+            range_stop = (max(effective_epoch_range) + 1) if effective_epoch_range else 0
+            range_len = len(effective_epoch_range)
+        selected_count = np.sum(bidx_selected)
 
         LOGGER.info('    Target epoch range: %d-%d (%d epochs out of %d epochs)\n'\
                     '    Unknown epochs in the range: %d (%.3f %%)\n'\
                     '    Outlier or NA epochs in the range: %d (%.3f %%)',
-                    epoch_range.start, epoch_range.stop,
-                    epoch_range.stop - epoch_range.start, epoch_num,
+                    range_start, range_stop, range_len, epoch_num,
                     np.sum(bidx_unknown & bidx_selected), 100 *
-                    np.sum(bidx_unknown & bidx_selected)/np.sum(bidx_selected),
+                    np.sum(bidx_unknown & bidx_selected)/max(selected_count, 1),
                     np.sum(~bidx_good_psd & bidx_selected),
-                    100*np.sum(~bidx_good_psd & bidx_selected)/np.sum(bidx_selected))
+                    100*np.sum(~bidx_good_psd & bidx_selected)/max(selected_count, 1))
 
 
         bidx_rem = (stage_call == 'REM') & bidx_target
@@ -262,14 +298,14 @@ def make_target_psd_info(mouse_info_df, epoch_range, epoch_len_sec, sample_freq,
                               'mouse_group': mouse_group,
                               'mouse_id': mouse_id,
                               'device_label': device_label,
-                              'stage_call': stage_call[epoch_range],
-                              'bidx_rem': bidx_rem[epoch_range],
-                              'bidx_nrem': bidx_nrem[epoch_range],
-                              'bidx_wake': bidx_wake[epoch_range],
-                              'bidx_unknown': bidx_unknown[epoch_range],
-                              'bidx_target': bidx_target[epoch_range],
-                              'norm': conv_psd[epoch_range],
-                              'raw': conv_psd_raw[epoch_range]})
+                              'stage_call': stage_call[effective_epoch_range],
+                              'bidx_rem': bidx_rem[effective_epoch_range],
+                              'bidx_nrem': bidx_nrem[effective_epoch_range],
+                              'bidx_wake': bidx_wake[effective_epoch_range],
+                              'bidx_unknown': bidx_unknown[effective_epoch_range],
+                              'bidx_target': bidx_target[effective_epoch_range],
+                              'norm': conv_psd[effective_epoch_range],
+                              'raw': conv_psd_raw[effective_epoch_range]})
 
     return psd_info_list
 
@@ -407,6 +443,27 @@ def make_psd_timeseries_df(psd_info_list, epoch_range, bidx_freq, stage_bidx_key
     Returns:
         [pd.dataframe]: The timeseries of PSD
     """
+    if not psd_info_list:
+        return pd.DataFrame()
+    min_epoch_num = min(len(psd_info['bidx_target']) for psd_info in psd_info_list)
+    if isinstance(epoch_range, range):
+        epoch_end = min(epoch_range.stop, min_epoch_num)
+        effective_epoch_range = range(epoch_range.start, epoch_end, epoch_range.step)
+    elif isinstance(epoch_range, slice):
+        stop = epoch_range.stop if epoch_range.stop is not None else min_epoch_num
+        effective_epoch_range = slice(epoch_range.start, min(stop, min_epoch_num), epoch_range.step)
+    else:
+        effective_epoch_range = [idx for idx in epoch_range if idx < min_epoch_num]
+
+    if isinstance(effective_epoch_range, range):
+        range_len = effective_epoch_range.stop - effective_epoch_range.start
+    elif isinstance(effective_epoch_range, slice):
+        range_len = len(range(effective_epoch_range.start or 0,
+                              effective_epoch_range.stop or min_epoch_num,
+                              effective_epoch_range.step or 1))
+    else:
+        range_len = len(effective_epoch_range)
+
     psd_timeseries_df = pd.DataFrame()
     for psd_info in psd_info_list:
         bidx_target = psd_info['bidx_target']
@@ -417,8 +474,9 @@ def make_psd_timeseries_df(psd_info_list, epoch_range, bidx_freq, stage_bidx_key
             bidx_targeted_stage = bidx_target
 
         conv_psd = psd_info[psd_type]
-        psd_delta_timeseries = np.repeat(np.nan, epoch_range.stop - epoch_range.start)
-        psd_delta_timeseries[bidx_targeted_stage[epoch_range]] = np.apply_along_axis(np.nanmean, 1, conv_psd[bidx_targeted_stage, :][:,bidx_freq])
+        psd_delta_timeseries = np.repeat(np.nan, range_len)
+        psd_delta_timeseries[bidx_targeted_stage[effective_epoch_range]] = np.apply_along_axis(
+            np.nanmean, 1, conv_psd[bidx_targeted_stage, :][:, bidx_freq])
         #psd_timeseries_df = psd_timeseries_df.append(
         #    [[psd_info['exp_label'], psd_info['mouse_group'], psd_info['mouse_id'], psd_info['device_label']] + psd_delta_timeseries.tolist()], ignore_index=True)
         # 新しい行データを準備
@@ -429,7 +487,16 @@ def make_psd_timeseries_df(psd_info_list, epoch_range, bidx_freq, stage_bidx_key
 
         # pd.concatを使用してDataFrameを更新
         psd_timeseries_df = pd.concat([psd_timeseries_df, new_row], ignore_index=True)
-    epoch_columns = [f'epoch{x+1}' for x in np.arange(epoch_range.start, epoch_range.stop)]
+    if isinstance(effective_epoch_range, range):
+        epoch_indices = np.arange(effective_epoch_range.start, effective_epoch_range.stop,
+                                  effective_epoch_range.step)
+    elif isinstance(effective_epoch_range, slice):
+        epoch_indices = np.arange(effective_epoch_range.start or 0,
+                                  effective_epoch_range.stop or min_epoch_num,
+                                  effective_epoch_range.step or 1)
+    else:
+        epoch_indices = np.array(effective_epoch_range)
+    epoch_columns = [f'epoch{x+1}' for x in epoch_indices]
     column_names = ['Experiment label', 'Mouse group', 'Mouse ID', 'Device label'] + epoch_columns
     psd_timeseries_df.columns = column_names
 
