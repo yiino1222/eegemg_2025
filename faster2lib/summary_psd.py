@@ -131,7 +131,10 @@ def make_psd_profile(psd_info_list, sample_freq, epoch_len_sec, psd_type='norm',
 
         # Fill missing values by interpolation
         hourly_psd_summary_df = hourly_psd_summary_df.groupby(['Mouse ID', 'Stage']).apply(
-            lambda group: group.interpolate(method='linear', limit_direction='both')
+            lambda group: group.infer_objects(copy=False).interpolate(
+                method='linear',
+                limit_direction='both',
+            )
         ).reset_index(drop=True)
 
         return psd_summary_df, hourly_psd_summary_df
