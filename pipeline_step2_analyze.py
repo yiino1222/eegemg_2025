@@ -2526,7 +2526,13 @@ def analyze_project(prj_dir: Path, output_dir_name: str, epoch_len_sec: int, res
     if not faster_dir_list:
         raise ValueError("No FASTER2 result directories were found.")
 
-    output_root = prj_dir / output_dir_name
+    if "raw_data" in prj_dir.parts:
+        raw_data_index = prj_dir.parts.index("raw_data")
+        base_dir = Path(*prj_dir.parts[:raw_data_index]) or prj_dir.parent
+        rel_path = Path(*prj_dir.parts[raw_data_index + 1 :])
+        output_root = base_dir / output_dir_name / rel_path
+    else:
+        output_root = prj_dir / output_dir_name
     output_root.mkdir(parents=True, exist_ok=True)
 
     mouse_info = collect_mouse_info_df(faster_dir_list, epoch_len_sec)
