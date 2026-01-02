@@ -753,8 +753,6 @@ def draw_stagetime_profile_grouped(stagetime_stats, epoch_len_sec, output_dir):
         csv_df = pd.DataFrame()
         mgs_t = mouse_groups_set[g_idx] # treatment
         num = np.sum(bidx_group_list[g_idx])
-        x_max = epoch_num*epoch_len_sec/3600
-        x = np.arange(x_max)
         fig = Figure(figsize=(13, 6))
         ax1 = fig.add_subplot(311, xmargin=0, ymargin=0)
         ax2 = fig.add_subplot(312, xmargin=0, ymargin=0)
