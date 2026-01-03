@@ -40,6 +40,7 @@ The pipeline now executes pure Python scripts (no notebook dependency):
 - `pipeline_step3_merge.py` — merge analyzed outputs and generate figures
 
 You can orchestrate everything with `run_pipeline.py` and a JSON config (recommended for Docker runs).
+Use `--config /path/to/other.json` when you want to run with a different configuration file.
 
 `pipeline.config.example.json` shows the expected keys:
 
@@ -58,7 +59,10 @@ You can orchestrate everything with `run_pipeline.py` and a JSON config (recomme
     "output_dir_name": "analyzed",
     "faster_dir_list": null,
     "epoch_len_sec": 8,
-    "result_dir_name": "result"
+    "result_dir_name": "result",
+    "overwrite": false,
+    "injection_before_hours": 6,
+    "injection_after_hours": 18
   },
   "merge": {
     "analyzed_dir_list": [
@@ -80,6 +84,18 @@ You can orchestrate everything with `run_pipeline.py` and a JSON config (recomme
       "psd_after": [6, 7],
       "norm_psd_after": [6, 7]
     }
+  }
+}
+```
+
+To compare mouse groups (e.g., WT vs KO), set:
+
+```json
+{
+  "merge": {
+    "comparison_mode": "mouse_group",
+    "comparison_drug": "vehicle",
+    "mouse_groups_to_compare": ["WT", "KO"]
   }
 }
 ```
@@ -292,6 +308,10 @@ python pipeline_step2_analyze.py --prj_dir /your_project/raw_data/kaist \
 
 Outputs are written under `analyzed/.../vehicle_24h_before6h/` and `analyzed/.../rapalog_24h_before6h/`.
 
+By default, pipeline step 2 extracts a window from **6 hours before** to **18 hours after**
+each injection (`injection_before_hours=6`, `injection_after_hours=18`).
+Override these values in `config.json` under the `analysis` section.
+
 > (Recommended) Visually inspect EEG/EMG traces and hypnograms before proceeding:
 > ```bash
 > python EEG_EMG_stage_viewer.py
@@ -307,7 +327,13 @@ python pipeline_step3_merge.py --analyzed_dir_list /your_project/analyzed/kaist/
 
 This step generates **hypnograms**, **PSD plots**, and **summary figures**.
 
+By default, plots are written under `output_dir/<target_group>/` to avoid overwriting
+results when multiple mouse groups are analyzed.
+
 * Use `--comparison-mode drug` (default) to compare two drugs within a single mouse group (legacy behavior controlled by `--target-group`).
+* Use `--comparison-mode mouse_group` with `--comparison-drug vehicle` (or `rapalog`) and
+  `--mouse-groups-to-compare WT KO` to generate WT vs KO plots. Outputs go under
+  `output_dir/WT_vs_KO/` when `mouse_groups_to_compare` is provided.
 * Use `--comparison-mode mouse_group` to compare two mouse groups within a single drug; set the reference drug with `--comparison-drug` and optionally limit groups via `--mouse-groups-to-compare`.
 
 ### Minimal Workflow Summary

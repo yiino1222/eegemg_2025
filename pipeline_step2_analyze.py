@@ -2566,8 +2566,8 @@ def analyze_project(
     result_dir_name: str,
     faster_dir_list=None,
     overwrite: bool = False,
-    injection_before_hours: float = 24,
-    injection_after_hours: float = 6,
+    injection_before_hours: float = 6,
+    injection_after_hours: float = 18,
 ) -> None:
     """Run sleep stage and PSD analysis for the specified project directory."""
 
@@ -2686,8 +2686,8 @@ def main() -> None:
     parser.add_argument("--epoch-len-sec", type=int, default=8, help="Epoch length used during preprocessing")
     parser.add_argument("--result-dir-name", default="result", help="Name of the preprocessing output directory")
     parser.add_argument("--overwrite", action="store_true", help="Recreate outputs even if they already exist")
-    parser.add_argument("--injection-before-hours", type=float, default=24, help="Hours before injection to include")
-    parser.add_argument("--injection-after-hours", type=float, default=6, help="Hours after injection to include")
+    parser.add_argument("--injection-before-hours", type=float, default=6, help="Hours before injection to include")
+    parser.add_argument("--injection-after-hours", type=float, default=18, help="Hours after injection to include")
 
     args = parser.parse_args()
     analyze_project(

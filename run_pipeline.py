@@ -50,8 +50,8 @@ def ensure_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
         "epoch_len_sec": preprocess["epoch_len_sec"],
         "result_dir_name": preprocess["result_dir_name"],
         "overwrite": preprocess["overwrite"],
-        "injection_before_hours": 24,
-        "injection_after_hours": 6,
+        "injection_before_hours": 6,
+        "injection_after_hours": 18,
         **config.get("analysis", {}),
     }
 
