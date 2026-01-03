@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import pandas as pd
 import os
+from pathlib import Path
 import numpy as np
 import pickle
 import argparse
@@ -335,7 +336,15 @@ def merge_hourly_psd_ts_csv(dir):
     delta_columns = [col for col in frequency_columns if delta_range[0] <= float(col[2:]) <= delta_range[1]]
     theta_columns = [col for col in frequency_columns if theta_range[0] <= float(col[2:]) <= theta_range[1]]
     #csv読み込み、カラム名そろえる
-    df=pd.read_csv(os.path.join(dir,csv_fname)).rename(columns={"Experiment label":"exp_label","Mouse group":"mouse_group",
+    csv_path = os.path.join(dir, csv_fname)
+    if not os.path.exists(csv_path):
+        fallback_path = Path(dir).parents[1] / "PSD_raw" / csv_fname
+        if fallback_path.exists():
+            csv_path = str(fallback_path)
+        else:
+            print(f"[WARN] Missing hourly PSD CSV, skipping: {csv_path}")
+            return pd.DataFrame()
+    df=pd.read_csv(csv_path).rename(columns={"Experiment label":"exp_label","Mouse group":"mouse_group",
                                                                 "Mouse ID":"mouse_ID","Stage":"stage","hour":"time_in_hour"})
     #nanを前後から補完
     for column in frequency_columns:
@@ -377,27 +386,45 @@ def meta_merge_psd_csv(analyzed_dir_list, subdir_vehicle, subdir_rapalog):
     for dir in analyzed_dir_list:
         # Vehicle データの処理
         df_append_vehicle = merge_hourly_psd_ts_csv(os.path.join(dir, subdir_vehicle, "PSD_raw"))
-        df_append_vehicle = add_index(df_append_vehicle, "drug", "vehicle")
-        psd_ts_list.append(df_append_vehicle)  # リストに追加
+        if not df_append_vehicle.empty:
+            df_append_vehicle = add_index(df_append_vehicle, "drug", "vehicle")
+            psd_ts_list.append(df_append_vehicle)  # リストに追加
 
         # Rapalog データの処理
         df_append_rapalog = merge_hourly_psd_ts_csv(os.path.join(dir, subdir_rapalog, "PSD_raw"))
-        df_append_rapalog = add_index(df_append_rapalog, "drug", "rapalog")
-        psd_ts_list.append(df_append_rapalog)  # リストに追加
+        if not df_append_rapalog.empty:
+            df_append_rapalog = add_index(df_append_rapalog, "drug", "rapalog")
+            psd_ts_list.append(df_append_rapalog)  # リストに追加
 
         # Profile データの処理
         csv_fname = "PSD_norm_allday_percentage-profile.csv"
-        df_profile_append_vehicle = read_psd_profile_csv(os.path.join(dir, subdir_vehicle, "PSD_norm", csv_fname))
-        df_profile_append_vehicle = add_index(df_profile_append_vehicle, "drug", "vehicle")
-        psd_profile_list.append(df_profile_append_vehicle)  # リストに追加
+        vehicle_profile_path = os.path.join(dir, subdir_vehicle, "PSD_norm", csv_fname)
+        if not os.path.exists(vehicle_profile_path):
+            fallback_vehicle = Path(dir) / "PSD_norm" / csv_fname
+            if fallback_vehicle.exists():
+                vehicle_profile_path = str(fallback_vehicle)
+        if os.path.exists(vehicle_profile_path):
+            df_profile_append_vehicle = read_psd_profile_csv(vehicle_profile_path)
+            df_profile_append_vehicle = add_index(df_profile_append_vehicle, "drug", "vehicle")
+            psd_profile_list.append(df_profile_append_vehicle)  # リストに追加
+        else:
+            print(f"[WARN] Missing PSD profile CSV, skipping: {vehicle_profile_path}")
 
-        df_profile_append_rapalog = read_psd_profile_csv(os.path.join(dir, subdir_rapalog, "PSD_norm", csv_fname))
-        df_profile_append_rapalog = add_index(df_profile_append_rapalog, "drug", "rapalog")
-        psd_profile_list.append(df_profile_append_rapalog)  # リストに追加
+        rapalog_profile_path = os.path.join(dir, subdir_rapalog, "PSD_norm", csv_fname)
+        if not os.path.exists(rapalog_profile_path):
+            fallback_rapalog = Path(dir) / "PSD_norm" / csv_fname
+            if fallback_rapalog.exists():
+                rapalog_profile_path = str(fallback_rapalog)
+        if os.path.exists(rapalog_profile_path):
+            df_profile_append_rapalog = read_psd_profile_csv(rapalog_profile_path)
+            df_profile_append_rapalog = add_index(df_profile_append_rapalog, "drug", "rapalog")
+            psd_profile_list.append(df_profile_append_rapalog)  # リストに追加
+        else:
+            print(f"[WARN] Missing PSD profile CSV, skipping: {rapalog_profile_path}")
 
     # リスト内のデータフレームを結合
-    merge_psd_ts_df = pd.concat(psd_ts_list, ignore_index=False)  # 元のインデックスを保持
-    merge_psd_profile_df = pd.concat(psd_profile_list, ignore_index=False)  # 元のインデックスを保持
+    merge_psd_ts_df = pd.concat(psd_ts_list, ignore_index=False) if psd_ts_list else pd.DataFrame()
+    merge_psd_profile_df = pd.concat(psd_profile_list, ignore_index=False) if psd_profile_list else pd.DataFrame()
 
     return merge_psd_ts_df, merge_psd_profile_df
 
@@ -447,8 +474,15 @@ def process_stats_path_list(analyzed_dir_list,vehicle_path,rapalog_path):
     #vehicle_path="vehicle_84h_before_24h_after_60h/stagetime_stats.npy"
     #rapalog_path="rapalog_84h_before_24h_after_60h/stagetime_stats.npy"
     for dir in analyzed_dir_list:
-        stats_list_vehicle.append(os.path.join(dir,vehicle_path))
-        stats_list_rapalog.append(os.path.join(dir,rapalog_path))
+        vehicle_stats = os.path.join(dir, vehicle_path)
+        rapalog_stats = os.path.join(dir, rapalog_path)
+        fallback_stats = os.path.join(dir, "stagetime_stats.npy")
+        if not os.path.exists(vehicle_stats) and os.path.exists(fallback_stats):
+            vehicle_stats = fallback_stats
+        if not os.path.exists(rapalog_stats) and os.path.exists(fallback_stats):
+            rapalog_stats = fallback_stats
+        stats_list_vehicle.append(vehicle_stats)
+        stats_list_rapalog.append(rapalog_stats)
     return stats_list_vehicle,stats_list_rapalog
 
 def process_psd_info_path_list(analyzed_dir_list):
@@ -459,8 +493,15 @@ def process_psd_info_path_list(analyzed_dir_list):
     #vehicle_path="vehicle_84h_before_24h_after_60h/stagetime_stats.npy"
     #rapalog_path="rapalog_84h_before_24h_after_60h/stagetime_stats.npy"
     for dir in analyzed_dir_list:
-        psd_info_list_vehicle.append(os.path.join(dir,vehicle_path))
-        psd_info_list_rapalog.append(os.path.join(dir,rapalog_path))
+        vehicle_info = os.path.join(dir, vehicle_path)
+        rapalog_info = os.path.join(dir, rapalog_path)
+        fallback_info = os.path.join(dir, "psd_info_list.pkl")
+        if not os.path.exists(vehicle_info) and os.path.exists(fallback_info):
+            vehicle_info = fallback_info
+        if not os.path.exists(rapalog_info) and os.path.exists(fallback_info):
+            rapalog_info = fallback_info
+        psd_info_list_vehicle.append(vehicle_info)
+        psd_info_list_rapalog.append(rapalog_info)
     return psd_info_list_vehicle,psd_info_list_rapalog
 
 def merge_individual_df(analyzed_dir_list, vehicle_path, rapalog_path, epoch_len_sec, ample_freq):
@@ -474,6 +515,9 @@ def merge_individual_df(analyzed_dir_list, vehicle_path, rapalog_path, epoch_len
     
     # Vehicleデータの処理
     for stats in stats_list_vehicle:
+        if not os.path.exists(stats):
+            print(f"[WARN] Missing stats file, skipping: {stats}")
+            continue
         df, df2, df3 = make_df_from_summary_dic(stats)
         df = add_index(df, "drug", "vehicle")
         meta_merge_list.append(df)
@@ -483,12 +527,18 @@ def merge_individual_df(analyzed_dir_list, vehicle_path, rapalog_path, epoch_len
         meta_merge_list3.append(df3)
     
     for psd_info_list in psd_info_list_vehicle:
+        if not os.path.exists(psd_info_list):
+            print(f"[WARN] Missing PSD info file, skipping: {psd_info_list}")
+            continue
         df4 = extract_psd_from_psdinfo(psd_info_list, epoch_len_sec, ample_freq)
         df4 = add_index(df4, "drug", "vehicle")
         psd_start_n_end_list.append(df4)
     
     # Rapalogデータの処理
     for stats in stats_list_rapalog:
+        if not os.path.exists(stats):
+            print(f"[WARN] Missing stats file, skipping: {stats}")
+            continue
         df, df2, df3 = make_df_from_summary_dic(stats)
         df = add_index(df, "drug", "rapalog")
         meta_merge_list.append(df)
@@ -498,15 +548,22 @@ def merge_individual_df(analyzed_dir_list, vehicle_path, rapalog_path, epoch_len
         meta_merge_list3.append(df3)
     
     for psd_info_list in psd_info_list_rapalog:
+        if not os.path.exists(psd_info_list):
+            print(f"[WARN] Missing PSD info file, skipping: {psd_info_list}")
+            continue
         df4 = extract_psd_from_psdinfo(psd_info_list, epoch_len_sec, ample_freq)
         df4 = add_index(df4, "drug", "rapalog")
         psd_start_n_end_list.append(df4)
     
     # pd.concatでリスト内のデータフレームを結合
+    if not meta_merge_list:
+        print("[WARN] No stagetime stats were found for merging; skipping merge.")
+        empty_df = pd.DataFrame()
+        return empty_df, empty_df, empty_df, pd.DataFrame()
     meta_merge_df = pd.concat(meta_merge_list, ignore_index=False)
     meta_merge_df2 = pd.concat(meta_merge_list2, ignore_index=False)
     meta_merge_df3 = pd.concat(meta_merge_list3, ignore_index=False)
-    psd_start_n_end_df = pd.concat(psd_start_n_end_list, ignore_index=False)
+    psd_start_n_end_df = pd.concat(psd_start_n_end_list, ignore_index=False) if psd_start_n_end_list else pd.DataFrame()
     
     return meta_merge_df, meta_merge_df2, meta_merge_df3, psd_start_n_end_df
 
@@ -585,10 +642,13 @@ def group_analysis_each_df(df: pd.DataFrame):
 
     return mean, sem, count
 
-def extract_mean_n_err(mean,sem,g_name,drug,sleep_stage,val_name):
-    y=np.array(mean.loc[pd.IndexSlice[g_name,drug,sleep_stage,:],val_name]).flatten()
-    err=np.array(sem.loc[pd.IndexSlice[g_name,drug,sleep_stage,:],val_name]).flatten()
-    return y,err
+def extract_mean_n_err(mean, sem, g_name, drug, sleep_stage, val_name):
+    subset = mean.loc[pd.IndexSlice[g_name, drug, sleep_stage, :], val_name]
+    subset = subset.sort_index()
+    x = subset.index.get_level_values("time_in_hour").to_numpy()
+    y = subset.to_numpy()
+    err = sem.loc[subset.index, val_name].to_numpy()
+    return x, y, err
 
 def extract_mean_n_err_for_PSD(mean,sem,g_name,drug,sleep_stage):
     freq_bins=sp.psd_freq_bins(sample_freq=128)
@@ -598,22 +658,24 @@ def extract_mean_n_err_for_PSD(mean,sem,g_name,drug,sleep_stage):
     return y,err
 
 def plot_ts_1group(mean,sem,count,g_name,sleep_stage,ax1,val_name,y_label):
-    x_val=np.arange(0,24)
     dark_period=[[0,12],[24,36],[48,60]]
     light_period=[[12,24],[36,48]]
     
-    y,err=extract_mean_n_err(mean,sem,g_name,"vehicle",sleep_stage,val_name)
+    x_val, y, err=extract_mean_n_err(mean,sem,g_name,"vehicle",sleep_stage,val_name)
     sample_n=count.loc[pd.IndexSlice[g_name,"vehicle",sleep_stage,0]][0]
     #label_str="vehicle (n=%d)"%sample_n
     label_str="vehicle"
     plot_timeseries(ax1,x_val,y,err,"k",label_str)
 
-    y,err=extract_mean_n_err(mean,sem,g_name,"rapalog",sleep_stage,val_name)
+    x_max = float(np.max(x_val)) if x_val.size else 0
+    x_val, y, err=extract_mean_n_err(mean,sem,g_name,"rapalog",sleep_stage,val_name)
     sample_n=count.loc[pd.IndexSlice[g_name,"rapalog",sleep_stage,0]][0]
     #label_str="rapalog (n=%d)"%sample_n
     label_str="rapalog"
     plot_timeseries(ax1,x_val,y,err,"r",label_str)
     
+    if x_val.size:
+        x_max = max(x_max, float(np.max(x_val)))
     for ax in [ax1]:
         ax.plot([0,60],[0.1,0.1],linewidth=5,color="yellow")
         ax.plot([6.5,17.5],[0.1,0.1],linewidth=5,color="k")
@@ -662,11 +724,11 @@ def plot_ts_1group(mean,sem,count,g_name,sleep_stage,ax1,val_name,y_label):
             ax.set_yticks([0,20,40,60])
         #ax.set_ylabel("NREM sleep duration (min/h)")
         ax.set_ylabel(y_label)
-        ax.set_xticks([0,6,12,18,24])
-        ax.set_xticklabels([-6,0,6,12,18])
+        ax.set_xticks(np.arange(0, x_max + 1, 6) if x_max else [0])
+        ax.set_xticklabels([int(x - 6) for x in ax.get_xticks()])
         ax.plot([6,6],[0,ax.get_ylim()[1]],"--",color="gray")
         ax.set_xlabel("Time after ip (h)")
-        ax.set_xlim([0,24])
+        ax.set_xlim([0, x_max])
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         ax.legend(fontsize=10,frameon=False)
@@ -674,13 +736,13 @@ def plot_ts_1group(mean,sem,count,g_name,sleep_stage,ax1,val_name,y_label):
 
 
 def plot_ts_mouse_groups(mean, sem, count, mouse_groups, drug, sleep_stage, ax1, val_name, y_label):
-    x_val = np.arange(0, 24)
     palette = sns.color_palette("colorblind", n_colors=len(mouse_groups))
 
     plotted_any = False
+    x_max = 0
     for g_name, color in zip(mouse_groups, palette):
         try:
-            y, err = extract_mean_n_err(mean, sem, g_name, drug, sleep_stage, val_name)
+            x_val, y, err = extract_mean_n_err(mean, sem, g_name, drug, sleep_stage, val_name)
             sample_n = count.loc[pd.IndexSlice[g_name, drug, sleep_stage, 0]][0]
         except KeyError:
             print(f"[WARN] plot_ts_mouse_groups: data missing for group={g_name}, drug={drug}, stage={sleep_stage}")
@@ -688,6 +750,8 @@ def plot_ts_mouse_groups(mean, sem, count, mouse_groups, drug, sleep_stage, ax1,
 
         plot_timeseries(ax1, x_val, y, err, color, g_name)
         plotted_any = True
+        if x_val.size:
+            x_max = max(x_max, float(np.max(x_val)))
 
     if not plotted_any:
         print(f"[WARN] plot_ts_mouse_groups: no data plotted for drug={drug}, stage={sleep_stage}")
@@ -740,11 +804,11 @@ def plot_ts_mouse_groups(mean, sem, count, mouse_groups, drug, sleep_stage, ax1,
             ax.set_ylim([0,60])
             ax.set_yticks([0,20,40,60])
         ax.set_ylabel(y_label)
-        ax.set_xticks([0,6,12,18,24])
-        ax.set_xticklabels([-6,0,6,12,18])
+        ax.set_xticks(np.arange(0, x_max + 1, 6) if x_max else [0])
+        ax.set_xticklabels([int(x - 6) for x in ax.get_xticks()])
         ax.plot([6,6],[0,ax.get_ylim()[1]],"--",color="gray")
         ax.set_xlabel("Time after ip (h)")
-        ax.set_xlim([0,24])
+        ax.set_xlim([0, x_max])
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         ax.legend(fontsize=10,frameon=False)
@@ -1309,6 +1373,14 @@ def merge_n_plot(
 
     #merge analyzed data
     meta_stage_df,meta_sw_trans_df,meta_stage_bout_df,meta_psd_start_end_df=merge_sleep_stage_df(analyzed_dir_list,epoch_len_sec,sample_freq)
+    if meta_stage_df.empty:
+        print("[WARN] No merged stagetime data available; skipping plot generation.")
+        return {
+            "meta_stage_df": meta_stage_df,
+            "meta_sw_trans_df": meta_sw_trans_df,
+            "meta_stage_bout_df": meta_stage_bout_df,
+            "meta_psd_start_end_df": meta_psd_start_end_df,
+        }
     merge_psd_ts_df,merge_psd_profile_df=merge_psd_df(analyzed_dir_list)
     
     #rename group if needed
@@ -1673,8 +1745,18 @@ def wilcoxon_n_paried_t(stage_df,psd_df,bout_df,target_group,stage):
     data1=stage_df[(stage_df.mouse_group==target_group)&(stage_df.stage==stage)&(stage_df.drug=="vehicle")].min_per_hour
     data2=stage_df[(stage_df.mouse_group==target_group)&(stage_df.stage==stage)&(stage_df.drug=="rapalog")].min_per_hour
     from scipy.stats import wilcoxon
+    def safe_wilcoxon(a, b, label):
+        a = np.asarray(a)
+        b = np.asarray(b)
+        if a.size == 0 or b.size == 0:
+            print(f"wilcoxon skipped for {label}: empty data")
+            return None, None
+        if np.allclose(a - b, 0, equal_nan=True):
+            print(f"wilcoxon skipped for {label}: all differences are zero")
+            return None, None
+        return wilcoxon(a, b)
     # ウィルコクソンの符号順位検定
-    statistic, p_value = wilcoxon(data1, data2)
+    statistic, p_value = safe_wilcoxon(data1, data2, "stage duration")
     print("wilcoxon")
     print('Statistic:', statistic)
     print('p-value:', p_value)
@@ -1690,7 +1772,7 @@ def wilcoxon_n_paried_t(stage_df,psd_df,bout_df,target_group,stage):
     data2=bout_df[(bout_df.mouse_group==target_group)&(bout_df.stage==stage)&(bout_df.drug=="rapalog")].bout_count
     
     # ウィルコクソンの符号順位検定
-    statistic, p_value = wilcoxon(data1, data2)
+    statistic, p_value = safe_wilcoxon(data1, data2, "stage bout count")
     print("wilcoxon")
     print('Statistic:', statistic)
     print('p-value:', p_value)
@@ -1700,7 +1782,7 @@ def wilcoxon_n_paried_t(stage_df,psd_df,bout_df,target_group,stage):
     data2=bout_df[(bout_df.mouse_group==target_group)&(bout_df.stage==stage)&(bout_df.drug=="rapalog")].mean_duration_sec
 
     # ウィルコクソンの符号順位検定
-    statistic, p_value = wilcoxon(data1, data2)
+    statistic, p_value = safe_wilcoxon(data1, data2, "stage bout length")
     print("wilcoxon")
     print('Statistic:', statistic)
     print('p-value:', p_value)
@@ -1710,7 +1792,7 @@ def wilcoxon_n_paried_t(stage_df,psd_df,bout_df,target_group,stage):
     data2=psd_df[(psd_df.mouse_group==target_group)&(psd_df.stage==stage)&(psd_df.drug=="rapalog")].delta_power
 
     # ウィルコクソンの符号順位検定
-    statistic, p_value = wilcoxon(data1, data2)
+    statistic, p_value = safe_wilcoxon(data1, data2, "norm delta power")
     print("wilcoxon")
     print('Statistic:', statistic)
     print('p-value:', p_value)
@@ -1727,7 +1809,7 @@ def wilcoxon_n_paried_t(stage_df,psd_df,bout_df,target_group,stage):
     data2=psd_df[(psd_df.mouse_group==target_group)&(psd_df.stage==stage)&(psd_df.drug=="rapalog")].theta_power
 
     # ウィルコクソンの符号順位検定
-    statistic, p_value = wilcoxon(data1, data2)
+    statistic, p_value = safe_wilcoxon(data1, data2, "norm theta power")
     print("wilcoxon")
     print('Statistic:', statistic)
     print('p-value:', p_value)
