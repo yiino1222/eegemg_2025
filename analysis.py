@@ -1745,8 +1745,18 @@ def wilcoxon_n_paried_t(stage_df,psd_df,bout_df,target_group,stage):
     data1=stage_df[(stage_df.mouse_group==target_group)&(stage_df.stage==stage)&(stage_df.drug=="vehicle")].min_per_hour
     data2=stage_df[(stage_df.mouse_group==target_group)&(stage_df.stage==stage)&(stage_df.drug=="rapalog")].min_per_hour
     from scipy.stats import wilcoxon
+    def safe_wilcoxon(a, b, label):
+        a = np.asarray(a)
+        b = np.asarray(b)
+        if a.size == 0 or b.size == 0:
+            print(f"wilcoxon skipped for {label}: empty data")
+            return None, None
+        if np.allclose(a - b, 0, equal_nan=True):
+            print(f"wilcoxon skipped for {label}: all differences are zero")
+            return None, None
+        return wilcoxon(a, b)
     # ウィルコクソンの符号順位検定
-    statistic, p_value = wilcoxon(data1, data2)
+    statistic, p_value = safe_wilcoxon(data1, data2, "stage duration")
     print("wilcoxon")
     print('Statistic:', statistic)
     print('p-value:', p_value)
@@ -1762,7 +1772,7 @@ def wilcoxon_n_paried_t(stage_df,psd_df,bout_df,target_group,stage):
     data2=bout_df[(bout_df.mouse_group==target_group)&(bout_df.stage==stage)&(bout_df.drug=="rapalog")].bout_count
     
     # ウィルコクソンの符号順位検定
-    statistic, p_value = wilcoxon(data1, data2)
+    statistic, p_value = safe_wilcoxon(data1, data2, "stage bout count")
     print("wilcoxon")
     print('Statistic:', statistic)
     print('p-value:', p_value)
@@ -1772,7 +1782,7 @@ def wilcoxon_n_paried_t(stage_df,psd_df,bout_df,target_group,stage):
     data2=bout_df[(bout_df.mouse_group==target_group)&(bout_df.stage==stage)&(bout_df.drug=="rapalog")].mean_duration_sec
 
     # ウィルコクソンの符号順位検定
-    statistic, p_value = wilcoxon(data1, data2)
+    statistic, p_value = safe_wilcoxon(data1, data2, "stage bout length")
     print("wilcoxon")
     print('Statistic:', statistic)
     print('p-value:', p_value)
@@ -1782,7 +1792,7 @@ def wilcoxon_n_paried_t(stage_df,psd_df,bout_df,target_group,stage):
     data2=psd_df[(psd_df.mouse_group==target_group)&(psd_df.stage==stage)&(psd_df.drug=="rapalog")].delta_power
 
     # ウィルコクソンの符号順位検定
-    statistic, p_value = wilcoxon(data1, data2)
+    statistic, p_value = safe_wilcoxon(data1, data2, "norm delta power")
     print("wilcoxon")
     print('Statistic:', statistic)
     print('p-value:', p_value)
@@ -1799,7 +1809,7 @@ def wilcoxon_n_paried_t(stage_df,psd_df,bout_df,target_group,stage):
     data2=psd_df[(psd_df.mouse_group==target_group)&(psd_df.stage==stage)&(psd_df.drug=="rapalog")].theta_power
 
     # ウィルコクソンの符号順位検定
-    statistic, p_value = wilcoxon(data1, data2)
+    statistic, p_value = safe_wilcoxon(data1, data2, "norm theta power")
     print("wilcoxon")
     print('Statistic:', statistic)
     print('p-value:', p_value)

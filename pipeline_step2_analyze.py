@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 import pandas as pd
 import os
 import numpy as np
@@ -121,6 +121,54 @@ def collect_mouse_info_df(faster_dir_list, epoch_len_sec):
         m_info['FASTER_DIR'] = faster_dir
         mouse_info_df = pd.concat([mouse_info_df, m_info])
     return ({'mouse_info': mouse_info_df, 'epoch_num': epoch_num, 'sample_freq': sample_freq, 'start_datetime': start_datetime})
+
+
+def resolve_data_dir(faster_dir: str) -> Path:
+    data_dir = Path(faster_dir) / "data"
+    if not (data_dir / "exp.info.csv").exists():
+        sibling_data_dir = Path(faster_dir).parent / "data"
+        if (sibling_data_dir / "exp.info.csv").exists():
+            data_dir = sibling_data_dir
+        else:
+            raise FileNotFoundError(
+                "exp.info.csv was not found under expected data directories. "
+                f"Tried: {data_dir / 'exp.info.csv'} and {sibling_data_dir / 'exp.info.csv'}"
+            )
+    return data_dir
+
+
+def read_drug_info(data_dir: Path, exp_label: str) -> dict:
+    drug_info_path = data_dir / "drug.info.csv"
+    if not drug_info_path.exists():
+        return {}
+    drug_info_df = pd.read_csv(drug_info_path)
+    row = drug_info_df.loc[drug_info_df["Experiment label"] == exp_label]
+    if row.empty:
+        return {}
+    row = row.iloc[0]
+    drug_map = {}
+    for idx in (1, 2):
+        name_col = f"drug{idx}_name"
+        datetime_col = f"drug{idx}_datetime"
+        if name_col not in row or datetime_col not in row:
+            continue
+        name = str(row[name_col]).strip().lower()
+        if not name or name == "nan":
+            continue
+        dt_raw = row[datetime_col]
+        if pd.isna(dt_raw):
+            continue
+        drug_map[name] = pd.to_datetime(dt_raw)
+    return drug_map
+
+
+def format_injection_subdir(drug_name: str, before_hours: float, after_hours: float) -> str:
+    def _format_hours(value: float) -> str:
+        if float(value).is_integer():
+            return str(int(value))
+        return str(value).replace(".", "p")
+
+    return f"{drug_name}_{_format_hours(before_hours)}h_before{_format_hours(after_hours)}h"
 def stagetime_in_a_day(stage_call):
     """Count each stage in the stage_call list and calculate
     the daily stage time in minuites.
@@ -2518,6 +2566,8 @@ def analyze_project(
     result_dir_name: str,
     faster_dir_list=None,
     overwrite: bool = False,
+    injection_before_hours: float = 24,
+    injection_after_hours: float = 6,
 ) -> None:
     """Run sleep stage and PSD analysis for the specified project directory."""
 
@@ -2568,25 +2618,64 @@ def analyze_project(
         output_root = _output_root_for_faster_dir(faster_dir)
         output_root.mkdir(parents=True, exist_ok=True)
         mouse_info = collect_mouse_info_df([faster_dir], epoch_len_sec)
-        output_subdir = _detect_output_subdir(faster_dir, mouse_info["mouse_info"])
-        output_dir = output_root / output_subdir if output_subdir else output_root
-        output_dir.mkdir(parents=True, exist_ok=True)
-        stats_path = output_dir / "stagetime_stats.npy"
-        if stats_path.exists() and not overwrite:
-            print_log(f"Skip existing {output_dir} (use --overwrite to force re-run)")
-            continue
-        epoch_range = range(0, mouse_info["epoch_num"])
+        exp_label = mouse_info["mouse_info"]["Experiment label"].iloc[0]
+        data_dir = resolve_data_dir(faster_dir)
+        drug_map = read_drug_info(data_dir, exp_label)
+        start_datetime = mouse_info["start_datetime"]
 
-        do_analysis(
-            [faster_dir],
-            str(output_dir),
-            stage_ext=None,
-            vol_unit="V",
-            epoch_range=epoch_range,
-            epoch_len_sec=epoch_len_sec,
-            is_circadian=False,
-            result_dir_name=result_dir_name,
-        )
+        if drug_map:
+            for drug_name, injection_datetime in drug_map.items():
+                if drug_name not in ("vehicle", "rapalog"):
+                    continue
+                window_start = injection_datetime - pd.Timedelta(hours=injection_before_hours)
+                window_end = injection_datetime + pd.Timedelta(hours=injection_after_hours)
+                start_offset = max((window_start - start_datetime).total_seconds(), 0)
+                end_offset = max((window_end - start_datetime).total_seconds(), 0)
+                epoch_start = int(start_offset // epoch_len_sec)
+                epoch_end = int(end_offset // epoch_len_sec)
+                epoch_range = range(epoch_start, epoch_end)
+
+                output_subdir = format_injection_subdir(
+                    drug_name,
+                    injection_before_hours,
+                    injection_after_hours,
+                )
+                output_dir = output_root / output_subdir
+                output_dir.mkdir(parents=True, exist_ok=True)
+                stats_path = output_dir / "stagetime_stats.npy"
+                if stats_path.exists() and not overwrite:
+                    print_log(f"Skip existing {output_dir} (use --overwrite to force re-run)")
+                    continue
+                do_analysis(
+                    [faster_dir],
+                    str(output_dir),
+                    stage_ext=None,
+                    vol_unit="V",
+                    epoch_range=epoch_range,
+                    epoch_len_sec=epoch_len_sec,
+                    is_circadian=False,
+                    result_dir_name=result_dir_name,
+                )
+        else:
+            output_subdir = _detect_output_subdir(faster_dir, mouse_info["mouse_info"])
+            output_dir = output_root / output_subdir if output_subdir else output_root
+            output_dir.mkdir(parents=True, exist_ok=True)
+            stats_path = output_dir / "stagetime_stats.npy"
+            if stats_path.exists() and not overwrite:
+                print_log(f"Skip existing {output_dir} (use --overwrite to force re-run)")
+                continue
+            epoch_range = range(0, mouse_info["epoch_num"])
+
+            do_analysis(
+                [faster_dir],
+                str(output_dir),
+                stage_ext=None,
+                vol_unit="V",
+                epoch_range=epoch_range,
+                epoch_len_sec=epoch_len_sec,
+                is_circadian=False,
+                result_dir_name=result_dir_name,
+            )
 
 
 def main() -> None:
@@ -2597,6 +2686,8 @@ def main() -> None:
     parser.add_argument("--epoch-len-sec", type=int, default=8, help="Epoch length used during preprocessing")
     parser.add_argument("--result-dir-name", default="result", help="Name of the preprocessing output directory")
     parser.add_argument("--overwrite", action="store_true", help="Recreate outputs even if they already exist")
+    parser.add_argument("--injection-before-hours", type=float, default=24, help="Hours before injection to include")
+    parser.add_argument("--injection-after-hours", type=float, default=6, help="Hours after injection to include")
 
     args = parser.parse_args()
     analyze_project(
@@ -2606,6 +2697,8 @@ def main() -> None:
         args.result_dir_name,
         faster_dir_list=args.faster_dir_list,
         overwrite=args.overwrite,
+        injection_before_hours=args.injection_before_hours,
+        injection_after_hours=args.injection_after_hours,
     )
 
 
