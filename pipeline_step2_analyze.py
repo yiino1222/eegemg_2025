@@ -2290,7 +2290,15 @@ def extract_raw_EEG_n_EMG(faster_dir,result_dir_name,device_label,epoch_range):
     EMG_selected=EMG_raw[epoch_range]
     return EEG_selected,EMG_selected
     
-def make_summary_stats(mouse_info_df, epoch_range, epoch_len_sec, stage_ext,is_circadian,result_dir_name="result"):
+def make_summary_stats(
+    mouse_info_df,
+    epoch_range,
+    epoch_len_sec,
+    stage_ext,
+    is_circadian,
+    result_dir_name="result",
+    time_in_hour_offset=0,
+):
     """ make summary statics of each mouse:
             stagetime in a day: how many minuites of stages each mouse spent in a day
             stage time profile: hourly profiles of stages over the recording
@@ -2427,11 +2435,22 @@ def make_summary_stats(mouse_info_df, epoch_range, epoch_len_sec, stage_ext,is_c
             'swtrans_profile': swtrans_profile_list,
             'swtrans_circadian': swtrans_circadian_profile_list,
             'epoch_num_in_range': epoch_num_in_range,
+            'time_in_hour_offset': time_in_hour_offset,
             'eeg':EEG_raw_list,
             'emg':EMG_raw_list,
             'stage_call':stage_call_list})
 
-def do_analysis(faster_dir_list,output_dir,stage_ext,vol_unit,epoch_range,epoch_len_sec,is_circadian,result_dir_name):
+def do_analysis(
+    faster_dir_list,
+    output_dir,
+    stage_ext,
+    vol_unit,
+    epoch_range,
+    epoch_len_sec,
+    is_circadian,
+    result_dir_name,
+    time_in_hour_offset=0,
+):
     # collect mouse_infos of the specified (multiple) FASTER dirs
     mouse_info_collected = collect_mouse_info_df(faster_dir_list, epoch_len_sec)
     mouse_info_df = mouse_info_collected['mouse_info']
@@ -2459,7 +2478,15 @@ def do_analysis(faster_dir_list,output_dir,stage_ext,vol_unit,epoch_range,epoch_
     os.makedirs(os.path.join(output_dir, 'log'), exist_ok=True)
 
     # prepare stagetime statistics
-    stagetime_stats = make_summary_stats(mouse_info_df, epoch_range, epoch_len_sec, stage_ext,is_circadian,result_dir_name)
+    stagetime_stats = make_summary_stats(
+        mouse_info_df,
+        epoch_range,
+        epoch_len_sec,
+        stage_ext,
+        is_circadian,
+        result_dir_name,
+        time_in_hour_offset=time_in_hour_offset,
+    )
     #stagetime_stats.to_csv(os.path.join(output_dir, 'stagetime_stats.csv'))
     #stagetime_stats.to_pickle(os.path.join(output_dir, 'stagetime_stats.pickle'))
     np.save(os.path.join(output_dir, 'stagetime_stats.npy'),stagetime_stats)
@@ -2664,6 +2691,7 @@ def analyze_project(
                     epoch_len_sec=epoch_len_sec,
                     is_circadian=False,
                     result_dir_name=result_dir_name,
+                    time_in_hour_offset=-injection_before_hours,
                 )
         else:
             output_subdir = _detect_output_subdir(faster_dir, mouse_info["mouse_info"])
@@ -2682,6 +2710,7 @@ def analyze_project(
                 epoch_len_sec=epoch_len_sec,
                 is_circadian=False,
                 result_dir_name=result_dir_name,
+                time_in_hour_offset=0,
             )
 
 
