@@ -642,10 +642,13 @@ def group_analysis_each_df(df: pd.DataFrame):
 
     return mean, sem, count
 
-def extract_mean_n_err(mean,sem,g_name,drug,sleep_stage,val_name):
-    y=np.array(mean.loc[pd.IndexSlice[g_name,drug,sleep_stage,:],val_name]).flatten()
-    err=np.array(sem.loc[pd.IndexSlice[g_name,drug,sleep_stage,:],val_name]).flatten()
-    return y,err
+def extract_mean_n_err(mean, sem, g_name, drug, sleep_stage, val_name):
+    subset = mean.loc[pd.IndexSlice[g_name, drug, sleep_stage, :], val_name]
+    subset = subset.sort_index()
+    x = subset.index.get_level_values("time_in_hour").to_numpy()
+    y = subset.to_numpy()
+    err = sem.loc[subset.index, val_name].to_numpy()
+    return x, y, err
 
 def extract_mean_n_err_for_PSD(mean,sem,g_name,drug,sleep_stage):
     freq_bins=sp.psd_freq_bins(sample_freq=128)
@@ -655,22 +658,24 @@ def extract_mean_n_err_for_PSD(mean,sem,g_name,drug,sleep_stage):
     return y,err
 
 def plot_ts_1group(mean,sem,count,g_name,sleep_stage,ax1,val_name,y_label):
-    x_val=np.arange(0,24)
     dark_period=[[0,12],[24,36],[48,60]]
     light_period=[[12,24],[36,48]]
     
-    y,err=extract_mean_n_err(mean,sem,g_name,"vehicle",sleep_stage,val_name)
+    x_val, y, err=extract_mean_n_err(mean,sem,g_name,"vehicle",sleep_stage,val_name)
     sample_n=count.loc[pd.IndexSlice[g_name,"vehicle",sleep_stage,0]][0]
     #label_str="vehicle (n=%d)"%sample_n
     label_str="vehicle"
     plot_timeseries(ax1,x_val,y,err,"k",label_str)
 
-    y,err=extract_mean_n_err(mean,sem,g_name,"rapalog",sleep_stage,val_name)
+    x_max = float(np.max(x_val)) if x_val.size else 0
+    x_val, y, err=extract_mean_n_err(mean,sem,g_name,"rapalog",sleep_stage,val_name)
     sample_n=count.loc[pd.IndexSlice[g_name,"rapalog",sleep_stage,0]][0]
     #label_str="rapalog (n=%d)"%sample_n
     label_str="rapalog"
     plot_timeseries(ax1,x_val,y,err,"r",label_str)
     
+    if x_val.size:
+        x_max = max(x_max, float(np.max(x_val)))
     for ax in [ax1]:
         ax.plot([0,60],[0.1,0.1],linewidth=5,color="yellow")
         ax.plot([6.5,17.5],[0.1,0.1],linewidth=5,color="k")
@@ -719,11 +724,11 @@ def plot_ts_1group(mean,sem,count,g_name,sleep_stage,ax1,val_name,y_label):
             ax.set_yticks([0,20,40,60])
         #ax.set_ylabel("NREM sleep duration (min/h)")
         ax.set_ylabel(y_label)
-        ax.set_xticks([0,6,12,18,24])
-        ax.set_xticklabels([-6,0,6,12,18])
+        ax.set_xticks(np.arange(0, x_max + 1, 6) if x_max else [0])
+        ax.set_xticklabels([int(x - 6) for x in ax.get_xticks()])
         ax.plot([6,6],[0,ax.get_ylim()[1]],"--",color="gray")
         ax.set_xlabel("Time after ip (h)")
-        ax.set_xlim([0,24])
+        ax.set_xlim([0, x_max])
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         ax.legend(fontsize=10,frameon=False)
@@ -731,13 +736,13 @@ def plot_ts_1group(mean,sem,count,g_name,sleep_stage,ax1,val_name,y_label):
 
 
 def plot_ts_mouse_groups(mean, sem, count, mouse_groups, drug, sleep_stage, ax1, val_name, y_label):
-    x_val = np.arange(0, 24)
     palette = sns.color_palette("colorblind", n_colors=len(mouse_groups))
 
     plotted_any = False
+    x_max = 0
     for g_name, color in zip(mouse_groups, palette):
         try:
-            y, err = extract_mean_n_err(mean, sem, g_name, drug, sleep_stage, val_name)
+            x_val, y, err = extract_mean_n_err(mean, sem, g_name, drug, sleep_stage, val_name)
             sample_n = count.loc[pd.IndexSlice[g_name, drug, sleep_stage, 0]][0]
         except KeyError:
             print(f"[WARN] plot_ts_mouse_groups: data missing for group={g_name}, drug={drug}, stage={sleep_stage}")
@@ -745,6 +750,8 @@ def plot_ts_mouse_groups(mean, sem, count, mouse_groups, drug, sleep_stage, ax1,
 
         plot_timeseries(ax1, x_val, y, err, color, g_name)
         plotted_any = True
+        if x_val.size:
+            x_max = max(x_max, float(np.max(x_val)))
 
     if not plotted_any:
         print(f"[WARN] plot_ts_mouse_groups: no data plotted for drug={drug}, stage={sleep_stage}")
@@ -797,11 +804,11 @@ def plot_ts_mouse_groups(mean, sem, count, mouse_groups, drug, sleep_stage, ax1,
             ax.set_ylim([0,60])
             ax.set_yticks([0,20,40,60])
         ax.set_ylabel(y_label)
-        ax.set_xticks([0,6,12,18,24])
-        ax.set_xticklabels([-6,0,6,12,18])
+        ax.set_xticks(np.arange(0, x_max + 1, 6) if x_max else [0])
+        ax.set_xticklabels([int(x - 6) for x in ax.get_xticks()])
         ax.plot([6,6],[0,ax.get_ylim()[1]],"--",color="gray")
         ax.set_xlabel("Time after ip (h)")
-        ax.set_xlim([0,24])
+        ax.set_xlim([0, x_max])
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         ax.legend(fontsize=10,frameon=False)

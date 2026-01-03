@@ -49,6 +49,7 @@ def ensure_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
         "faster_dir_list": None,
         "epoch_len_sec": preprocess["epoch_len_sec"],
         "result_dir_name": preprocess["result_dir_name"],
+        "overwrite": preprocess["overwrite"],
         **config.get("analysis", {}),
     }
 

@@ -2511,7 +2511,14 @@ def do_analysis(faster_dir_list,output_dir,stage_ext,vol_unit,epoch_range,epoch_
     #process_psd_timeseries(psd_info_list, percentage_psd_info_list, epoch_range, epoch_len_sec, sample_freq, output_dir, 'raw', vol_unit)
 
 
-def analyze_project(prj_dir: Path, output_dir_name: str, epoch_len_sec: int, result_dir_name: str, faster_dir_list=None) -> None:
+def analyze_project(
+    prj_dir: Path,
+    output_dir_name: str,
+    epoch_len_sec: int,
+    result_dir_name: str,
+    faster_dir_list=None,
+    overwrite: bool = False,
+) -> None:
     """Run sleep stage and PSD analysis for the specified project directory."""
 
     prj_dir = Path(prj_dir)
@@ -2564,6 +2571,10 @@ def analyze_project(prj_dir: Path, output_dir_name: str, epoch_len_sec: int, res
         output_subdir = _detect_output_subdir(faster_dir, mouse_info["mouse_info"])
         output_dir = output_root / output_subdir if output_subdir else output_root
         output_dir.mkdir(parents=True, exist_ok=True)
+        stats_path = output_dir / "stagetime_stats.npy"
+        if stats_path.exists() and not overwrite:
+            print_log(f"Skip existing {output_dir} (use --overwrite to force re-run)")
+            continue
         epoch_range = range(0, mouse_info["epoch_num"])
 
         do_analysis(
@@ -2585,6 +2596,7 @@ def main() -> None:
     parser.add_argument("--faster-dir-list", nargs="*", default=None, help="Explicit list of FASTER2 result directories to analyze")
     parser.add_argument("--epoch-len-sec", type=int, default=8, help="Epoch length used during preprocessing")
     parser.add_argument("--result-dir-name", default="result", help="Name of the preprocessing output directory")
+    parser.add_argument("--overwrite", action="store_true", help="Recreate outputs even if they already exist")
 
     args = parser.parse_args()
     analyze_project(
@@ -2593,6 +2605,7 @@ def main() -> None:
         args.epoch_len_sec,
         args.result_dir_name,
         faster_dir_list=args.faster_dir_list,
+        overwrite=args.overwrite,
     )
 
 
