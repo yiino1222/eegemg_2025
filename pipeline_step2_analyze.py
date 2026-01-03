@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from pathlib import Path
+from typing import Optional
 import pandas as pd
 import os
 import numpy as np
@@ -2541,15 +2542,35 @@ def analyze_project(prj_dir: Path, output_dir_name: str, epoch_len_sec: int, res
             return base_dir / output_dir_name / rel_path
         return prj_dir / output_dir_name / faster_path.name
 
+    def _detect_output_subdir(faster_dir: str, mouse_info_df: pd.DataFrame) -> Optional[str]:
+        candidates = []
+        for column in ("Note", "Experiment label"):
+            if column in mouse_info_df.columns:
+                values = [str(v).strip() for v in mouse_info_df[column].dropna().unique() if str(v).strip()]
+                candidates.extend(values)
+        candidates.append(str(faster_dir))
+        for value in candidates:
+            lower = value.lower()
+            if "vehicle" in lower:
+                return "vehicle_24h_before6h"
+            if "rapalog" in lower:
+                return "rapalog_24h_before6h"
+        return None
+
     for faster_dir in faster_dir_list:
         output_root = _output_root_for_faster_dir(faster_dir)
         output_root.mkdir(parents=True, exist_ok=True)
         mouse_info = collect_mouse_info_df([faster_dir], epoch_len_sec)
+
+        output_subdir = _detect_output_subdir(faster_dir, mouse_info["mouse_info"])
+        output_dir = output_root / output_subdir if output_subdir else output_root
+        output_dir.mkdir(parents=True, exist_ok=True)
+
         epoch_range = range(0, mouse_info["epoch_num"])
 
         do_analysis(
             [faster_dir],
-            str(output_root),
+            str(output_dir),
             stage_ext=None,
             vol_unit="V",
             epoch_range=epoch_range,

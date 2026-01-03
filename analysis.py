@@ -335,7 +335,11 @@ def merge_hourly_psd_ts_csv(dir):
     delta_columns = [col for col in frequency_columns if delta_range[0] <= float(col[2:]) <= delta_range[1]]
     theta_columns = [col for col in frequency_columns if theta_range[0] <= float(col[2:]) <= theta_range[1]]
     #csv読み込み、カラム名そろえる
-    df=pd.read_csv(os.path.join(dir,csv_fname)).rename(columns={"Experiment label":"exp_label","Mouse group":"mouse_group",
+    csv_path = os.path.join(dir, csv_fname)
+    if not os.path.exists(csv_path):
+        print(f"[WARN] Missing hourly PSD CSV, skipping: {csv_path}")
+        return pd.DataFrame()
+    df=pd.read_csv(csv_path).rename(columns={"Experiment label":"exp_label","Mouse group":"mouse_group",
                                                                 "Mouse ID":"mouse_ID","Stage":"stage","hour":"time_in_hour"})
     #nanを前後から補完
     for column in frequency_columns:
@@ -377,27 +381,37 @@ def meta_merge_psd_csv(analyzed_dir_list, subdir_vehicle, subdir_rapalog):
     for dir in analyzed_dir_list:
         # Vehicle データの処理
         df_append_vehicle = merge_hourly_psd_ts_csv(os.path.join(dir, subdir_vehicle, "PSD_raw"))
-        df_append_vehicle = add_index(df_append_vehicle, "drug", "vehicle")
-        psd_ts_list.append(df_append_vehicle)  # リストに追加
+        if not df_append_vehicle.empty:
+            df_append_vehicle = add_index(df_append_vehicle, "drug", "vehicle")
+            psd_ts_list.append(df_append_vehicle)  # リストに追加
 
         # Rapalog データの処理
         df_append_rapalog = merge_hourly_psd_ts_csv(os.path.join(dir, subdir_rapalog, "PSD_raw"))
-        df_append_rapalog = add_index(df_append_rapalog, "drug", "rapalog")
-        psd_ts_list.append(df_append_rapalog)  # リストに追加
+        if not df_append_rapalog.empty:
+            df_append_rapalog = add_index(df_append_rapalog, "drug", "rapalog")
+            psd_ts_list.append(df_append_rapalog)  # リストに追加
 
         # Profile データの処理
         csv_fname = "PSD_norm_allday_percentage-profile.csv"
-        df_profile_append_vehicle = read_psd_profile_csv(os.path.join(dir, subdir_vehicle, "PSD_norm", csv_fname))
-        df_profile_append_vehicle = add_index(df_profile_append_vehicle, "drug", "vehicle")
-        psd_profile_list.append(df_profile_append_vehicle)  # リストに追加
+        vehicle_profile_path = os.path.join(dir, subdir_vehicle, "PSD_norm", csv_fname)
+        if os.path.exists(vehicle_profile_path):
+            df_profile_append_vehicle = read_psd_profile_csv(vehicle_profile_path)
+            df_profile_append_vehicle = add_index(df_profile_append_vehicle, "drug", "vehicle")
+            psd_profile_list.append(df_profile_append_vehicle)  # リストに追加
+        else:
+            print(f"[WARN] Missing PSD profile CSV, skipping: {vehicle_profile_path}")
 
-        df_profile_append_rapalog = read_psd_profile_csv(os.path.join(dir, subdir_rapalog, "PSD_norm", csv_fname))
-        df_profile_append_rapalog = add_index(df_profile_append_rapalog, "drug", "rapalog")
-        psd_profile_list.append(df_profile_append_rapalog)  # リストに追加
+        rapalog_profile_path = os.path.join(dir, subdir_rapalog, "PSD_norm", csv_fname)
+        if os.path.exists(rapalog_profile_path):
+            df_profile_append_rapalog = read_psd_profile_csv(rapalog_profile_path)
+            df_profile_append_rapalog = add_index(df_profile_append_rapalog, "drug", "rapalog")
+            psd_profile_list.append(df_profile_append_rapalog)  # リストに追加
+        else:
+            print(f"[WARN] Missing PSD profile CSV, skipping: {rapalog_profile_path}")
 
     # リスト内のデータフレームを結合
-    merge_psd_ts_df = pd.concat(psd_ts_list, ignore_index=False)  # 元のインデックスを保持
-    merge_psd_profile_df = pd.concat(psd_profile_list, ignore_index=False)  # 元のインデックスを保持
+    merge_psd_ts_df = pd.concat(psd_ts_list, ignore_index=False) if psd_ts_list else pd.DataFrame()
+    merge_psd_profile_df = pd.concat(psd_profile_list, ignore_index=False) if psd_profile_list else pd.DataFrame()
 
     return merge_psd_ts_df, merge_psd_profile_df
 
