@@ -190,6 +190,7 @@ def make_df_from_summary_dic(stats_fname):
     data_array = stats["stagetime_profile"]
     transition_array = stats["swtrans_profile"]  # [hourly_psw, hourly_pws]
     bout_array = stats["bout_profile"]
+    time_offset = stats.get("time_in_hour_offset", 0)
     
     # リストを用意
     stage_merge_list = []
@@ -206,7 +207,7 @@ def make_df_from_summary_dic(stats_fname):
             "mouse_ID": df_exp_info['Mouse ID'][i],
             "hourly_psw": transition_array[i][0],
             "hourly_pws": transition_array[i][1],
-            "time_in_hour": np.arange(len(transition_array[i][0]))
+            "time_in_hour": np.arange(len(transition_array[i][0])) + time_offset
         })
         sw_transition_merge_list.append(df_swtansition_append)
         
@@ -233,7 +234,7 @@ def make_df_from_summary_dic(stats_fname):
                     "stage": stage,
                     "bout_count": [bout_count],
                     "mean_duration_sec": [mean_duration_sec],
-                    "time_in_hour": [hour]
+                    "time_in_hour": [hour + time_offset]
                 })
                 stage_bout_merge_list.append(stage_bout_append)
         
@@ -245,7 +246,7 @@ def make_df_from_summary_dic(stats_fname):
                 "mouse_ID": df_exp_info['Mouse ID'][i],
                 "stage": stage,
                 "min_per_hour": data_array[i][j],
-                "time_in_hour": np.arange(len(data_array[i][j]))
+                "time_in_hour": np.arange(len(data_array[i][j])) + time_offset
             })
             stage_merge_list.append(df_append)
     
@@ -346,6 +347,11 @@ def merge_hourly_psd_ts_csv(dir):
             return pd.DataFrame()
     df=pd.read_csv(csv_path).rename(columns={"Experiment label":"exp_label","Mouse group":"mouse_group",
                                                                 "Mouse ID":"mouse_ID","Stage":"stage","hour":"time_in_hour"})
+    stats_path = Path(dir).parent / "stagetime_stats.npy"
+    if stats_path.exists():
+        stats = np.load(stats_path, allow_pickle=True)[()]
+        time_offset = stats.get("time_in_hour_offset", 0)
+        df["time_in_hour"] = df["time_in_hour"] + time_offset
     #nanを前後から補完
     for column in frequency_columns:
         #df[column] = df.groupby(['mouse_ID', 'stage'])[column].apply(lambda group: group.ffill().bfill().fillna(group.mean()))

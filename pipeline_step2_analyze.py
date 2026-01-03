@@ -2290,7 +2290,15 @@ def extract_raw_EEG_n_EMG(faster_dir,result_dir_name,device_label,epoch_range):
     EMG_selected=EMG_raw[epoch_range]
     return EEG_selected,EMG_selected
     
-def make_summary_stats(mouse_info_df, epoch_range, epoch_len_sec, stage_ext,is_circadian,result_dir_name="result"):
+def make_summary_stats(
+    mouse_info_df,
+    epoch_range,
+    epoch_len_sec,
+    stage_ext,
+    is_circadian,
+    result_dir_name="result",
+    time_in_hour_offset=0,
+):
     """ make summary statics of each mouse:
             stagetime in a day: how many minuites of stages each mouse spent in a day
             stage time profile: hourly profiles of stages over the recording
@@ -2427,11 +2435,22 @@ def make_summary_stats(mouse_info_df, epoch_range, epoch_len_sec, stage_ext,is_c
             'swtrans_profile': swtrans_profile_list,
             'swtrans_circadian': swtrans_circadian_profile_list,
             'epoch_num_in_range': epoch_num_in_range,
+            'time_in_hour_offset': time_in_hour_offset,
             'eeg':EEG_raw_list,
             'emg':EMG_raw_list,
             'stage_call':stage_call_list})
 
-def do_analysis(faster_dir_list,output_dir,stage_ext,vol_unit,epoch_range,epoch_len_sec,is_circadian,result_dir_name):
+def do_analysis(
+    faster_dir_list,
+    output_dir,
+    stage_ext,
+    vol_unit,
+    epoch_range,
+    epoch_len_sec,
+    is_circadian,
+    result_dir_name,
+    time_in_hour_offset=0,
+):
     # collect mouse_infos of the specified (multiple) FASTER dirs
     mouse_info_collected = collect_mouse_info_df(faster_dir_list, epoch_len_sec)
     mouse_info_df = mouse_info_collected['mouse_info']
@@ -2459,7 +2478,15 @@ def do_analysis(faster_dir_list,output_dir,stage_ext,vol_unit,epoch_range,epoch_
     os.makedirs(os.path.join(output_dir, 'log'), exist_ok=True)
 
     # prepare stagetime statistics
-    stagetime_stats = make_summary_stats(mouse_info_df, epoch_range, epoch_len_sec, stage_ext,is_circadian,result_dir_name)
+    stagetime_stats = make_summary_stats(
+        mouse_info_df,
+        epoch_range,
+        epoch_len_sec,
+        stage_ext,
+        is_circadian,
+        result_dir_name,
+        time_in_hour_offset=time_in_hour_offset,
+    )
     #stagetime_stats.to_csv(os.path.join(output_dir, 'stagetime_stats.csv'))
     #stagetime_stats.to_pickle(os.path.join(output_dir, 'stagetime_stats.pickle'))
     np.save(os.path.join(output_dir, 'stagetime_stats.npy'),stagetime_stats)
@@ -2614,6 +2641,17 @@ def analyze_project(
                 return "rapalog_24h_before6h"
         return None
 
+    def should_skip_output(output_dir: Path) -> bool:
+        if overwrite:
+            return False
+        if output_dir.exists() and (
+            (output_dir / "stagetime_stats.npy").exists()
+            or (output_dir / "psd_info_list.pkl").exists()
+        ):
+            print_log(f"Skip existing {output_dir} (use --overwrite to force re-run)")
+            return True
+        return False
+
     for faster_dir in faster_dir_list:
         output_root = _output_root_for_faster_dir(faster_dir)
         output_root.mkdir(parents=True, exist_ok=True)
@@ -2642,9 +2680,7 @@ def analyze_project(
                 )
                 output_dir = output_root / output_subdir
                 output_dir.mkdir(parents=True, exist_ok=True)
-                stats_path = output_dir / "stagetime_stats.npy"
-                if stats_path.exists() and not overwrite:
-                    print_log(f"Skip existing {output_dir} (use --overwrite to force re-run)")
+                if should_skip_output(output_dir):
                     continue
                 do_analysis(
                     [faster_dir],
@@ -2655,14 +2691,13 @@ def analyze_project(
                     epoch_len_sec=epoch_len_sec,
                     is_circadian=False,
                     result_dir_name=result_dir_name,
+                    time_in_hour_offset=-injection_before_hours,
                 )
         else:
             output_subdir = _detect_output_subdir(faster_dir, mouse_info["mouse_info"])
             output_dir = output_root / output_subdir if output_subdir else output_root
             output_dir.mkdir(parents=True, exist_ok=True)
-            stats_path = output_dir / "stagetime_stats.npy"
-            if stats_path.exists() and not overwrite:
-                print_log(f"Skip existing {output_dir} (use --overwrite to force re-run)")
+            if should_skip_output(output_dir):
                 continue
             epoch_range = range(0, mouse_info["epoch_num"])
 
@@ -2675,6 +2710,7 @@ def analyze_project(
                 epoch_len_sec=epoch_len_sec,
                 is_circadian=False,
                 result_dir_name=result_dir_name,
+                time_in_hour_offset=0,
             )
 
 
