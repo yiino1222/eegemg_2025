@@ -338,14 +338,12 @@ def merge_hourly_psd_ts_csv(dir):
     #csv読み込み、カラム名そろえる
     csv_path = os.path.join(dir, csv_fname)
     if not os.path.exists(csv_path):
-
         fallback_path = Path(dir).parents[1] / "PSD_raw" / csv_fname
         if fallback_path.exists():
             csv_path = str(fallback_path)
         else:
             print(f"[WARN] Missing hourly PSD CSV, skipping: {csv_path}")
             return pd.DataFrame()
-
     df=pd.read_csv(csv_path).rename(columns={"Experiment label":"exp_label","Mouse group":"mouse_group",
                                                                 "Mouse ID":"mouse_ID","Stage":"stage","hour":"time_in_hour"})
     #nanを前後から補完
@@ -401,12 +399,10 @@ def meta_merge_psd_csv(analyzed_dir_list, subdir_vehicle, subdir_rapalog):
         # Profile データの処理
         csv_fname = "PSD_norm_allday_percentage-profile.csv"
         vehicle_profile_path = os.path.join(dir, subdir_vehicle, "PSD_norm", csv_fname)
-
         if not os.path.exists(vehicle_profile_path):
             fallback_vehicle = Path(dir) / "PSD_norm" / csv_fname
             if fallback_vehicle.exists():
                 vehicle_profile_path = str(fallback_vehicle)
-
         if os.path.exists(vehicle_profile_path):
             df_profile_append_vehicle = read_psd_profile_csv(vehicle_profile_path)
             df_profile_append_vehicle = add_index(df_profile_append_vehicle, "drug", "vehicle")
@@ -415,12 +411,10 @@ def meta_merge_psd_csv(analyzed_dir_list, subdir_vehicle, subdir_rapalog):
             print(f"[WARN] Missing PSD profile CSV, skipping: {vehicle_profile_path}")
 
         rapalog_profile_path = os.path.join(dir, subdir_rapalog, "PSD_norm", csv_fname)
-
         if not os.path.exists(rapalog_profile_path):
             fallback_rapalog = Path(dir) / "PSD_norm" / csv_fname
             if fallback_rapalog.exists():
                 rapalog_profile_path = str(fallback_rapalog)
-
         if os.path.exists(rapalog_profile_path):
             df_profile_append_rapalog = read_psd_profile_csv(rapalog_profile_path)
             df_profile_append_rapalog = add_index(df_profile_append_rapalog, "drug", "rapalog")

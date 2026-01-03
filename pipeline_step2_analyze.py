@@ -2561,11 +2561,9 @@ def analyze_project(prj_dir: Path, output_dir_name: str, epoch_len_sec: int, res
         output_root = _output_root_for_faster_dir(faster_dir)
         output_root.mkdir(parents=True, exist_ok=True)
         mouse_info = collect_mouse_info_df([faster_dir], epoch_len_sec)
-
         output_subdir = _detect_output_subdir(faster_dir, mouse_info["mouse_info"])
         output_dir = output_root / output_subdir if output_subdir else output_root
         output_dir.mkdir(parents=True, exist_ok=True)
-
         epoch_range = range(0, mouse_info["epoch_num"])
 
         do_analysis(

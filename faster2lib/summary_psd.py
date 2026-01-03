@@ -130,12 +130,20 @@ def make_psd_profile(psd_info_list, sample_freq, epoch_len_sec, psd_type='norm',
         hourly_psd_summary_df = pd.DataFrame(hourly_rows, columns=hourly_columns)
 
         # Fill missing values by interpolation
-        hourly_psd_summary_df = hourly_psd_summary_df.groupby(['Mouse ID', 'Stage']).apply(
-            lambda group: group.infer_objects(copy=False).interpolate(
+        def _interpolate_numeric(group: pd.DataFrame) -> pd.DataFrame:
+            group = group.infer_objects(copy=False)
+            numeric_cols = group.select_dtypes(include=[np.number]).columns
+            group[numeric_cols] = group[numeric_cols].interpolate(
                 method='linear',
                 limit_direction='both',
             )
-        ).reset_index(drop=True)
+            return group
+
+        hourly_psd_summary_df = (
+            hourly_psd_summary_df.groupby(['Mouse ID', 'Stage'])
+            .apply(_interpolate_numeric)
+            .reset_index(drop=True)
+        )
 
         return psd_summary_df, hourly_psd_summary_df
     else:
@@ -381,7 +389,7 @@ def make_psd_stats(psd_domain_df):
 
     # Initialize the DataFrame columns
     columns = ['Mouse group', 'Stage type', 'Wave type', 'N', 'Mean', 'SD', 'Pvalue', 'Stars', 'Method']
-    psd_stats_df = pd.DataFrame(columns=columns)
+    psd_stats_frames = []
 
     # Mouse group setup
     mouse_group_list = psd_domain_df['Mouse group'].tolist()
@@ -406,7 +414,8 @@ def make_psd_stats(psd_domain_df):
 
     # Add control group rows to DataFrame
     control_rows_df = pd.DataFrame(rows, columns=columns)
-    psd_stats_df = pd.concat([psd_stats_df, control_rows_df], ignore_index=True)
+    if not control_rows_df.empty:
+        psd_stats_frames.append(control_rows_df)
 
     # Treatment groups
     for group_t in mouse_group_set[1:]:
@@ -426,7 +435,13 @@ def make_psd_stats(psd_domain_df):
 
         # Add treatment group rows to DataFrame
         treatment_rows_df = pd.DataFrame(rows, columns=columns)
-        psd_stats_df = pd.concat([psd_stats_df, treatment_rows_df], ignore_index=True)
+        if not treatment_rows_df.empty:
+            psd_stats_frames.append(treatment_rows_df)
+
+    if psd_stats_frames:
+        psd_stats_df = pd.concat(psd_stats_frames, ignore_index=True)
+    else:
+        psd_stats_df = pd.DataFrame(columns=columns)
 
     return psd_stats_df
 
