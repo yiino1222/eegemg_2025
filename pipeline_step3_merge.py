@@ -19,6 +19,11 @@ def merge_and_plot(
     quant_time_windows=None,
 ):
     output_dir = Path(output_dir)
+    if comparison_mode == "mouse_group" and mouse_groups_to_compare:
+        compare_label = "_vs_".join(mouse_groups_to_compare)
+        output_dir = output_dir / compare_label
+    else:
+        output_dir = output_dir / target_group
     output_dir.mkdir(parents=True, exist_ok=True)
 
     merge_result = ana.merge_n_plot(
