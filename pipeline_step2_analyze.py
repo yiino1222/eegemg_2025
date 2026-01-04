@@ -141,7 +141,7 @@ def read_drug_info(data_dir: Path, exp_label: str) -> dict:
     drug_info_path = data_dir / "drug.info.csv"
     if not drug_info_path.exists():
         return {}
-    drug_info_df = pd.read_csv(drug_info_path)
+    drug_info_df = pd.read_csv(drug_info_path, parse_dates=["drug1_datetime", "drug2_datetime"])
     row = drug_info_df.loc[drug_info_df["Experiment label"] == exp_label]
     if row.empty:
         return {}
@@ -158,7 +158,7 @@ def read_drug_info(data_dir: Path, exp_label: str) -> dict:
         dt_raw = row[datetime_col]
         if pd.isna(dt_raw):
             continue
-        drug_map[name] = pd.to_datetime(dt_raw)
+        drug_map[name] = dt_raw
     return drug_map
 
 
