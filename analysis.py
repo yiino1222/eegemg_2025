@@ -6,6 +6,7 @@ import numpy as np
 import pickle
 import argparse
 import copy
+import re
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -190,7 +191,13 @@ def make_df_from_summary_dic(stats_fname):
     data_array = stats["stagetime_profile"]
     transition_array = stats["swtrans_profile"]  # [hourly_psw, hourly_pws]
     bout_array = stats["bout_profile"]
-    time_offset = stats.get("time_in_hour_offset", 0)
+    time_offset = stats.get("time_in_hour_offset")
+    if time_offset is None:
+        match = re.search(r"_(\d+(?:p\d+)?)h_before", str(stats_fname))
+        if match:
+            time_offset = -float(match.group(1).replace("p", "."))
+        else:
+            time_offset = 0
     
     # リストを用意
     stage_merge_list = []
@@ -259,6 +266,11 @@ def make_df_from_summary_dic(stats_fname):
     stage_merge_df = stage_merge_df.set_index(["exp_label", "mouse_group", "mouse_ID", "stage", "time_in_hour"])
     sw_transition_merge_df = sw_transition_merge_df.set_index(["exp_label", "mouse_group", "mouse_ID", "time_in_hour"])
     stage_bout_merge_df = stage_bout_merge_df.set_index(["exp_label", "mouse_group", "mouse_ID", "stage", "time_in_hour"])
+
+    if not stage_merge_df.empty:
+        time_vals = stage_merge_df.index.get_level_values("time_in_hour")
+        print(f"[DEBUG] time_in_hour range: {time_vals.min()} to {time_vals.max()}")
+        print(f"[DEBUG] time_in_hour count: {time_vals.nunique()}")
     
     return stage_merge_df, sw_transition_merge_df, stage_bout_merge_df
 
@@ -350,7 +362,13 @@ def merge_hourly_psd_ts_csv(dir):
     stats_path = Path(dir).parent / "stagetime_stats.npy"
     if stats_path.exists():
         stats = np.load(stats_path, allow_pickle=True)[()]
-        time_offset = stats.get("time_in_hour_offset", 0)
+        time_offset = stats.get("time_in_hour_offset")
+        if time_offset is None:
+            match = re.search(r"_(\d+(?:p\d+)?)h_before", str(stats_path))
+            if match:
+                time_offset = -float(match.group(1).replace("p", "."))
+            else:
+                time_offset = 0
         df["time_in_hour"] = df["time_in_hour"] + time_offset
     #nanを前後から補完
     for column in frequency_columns:

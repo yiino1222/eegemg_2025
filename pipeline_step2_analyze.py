@@ -2695,6 +2695,13 @@ def analyze_project(
                 )
         else:
             output_subdir = _detect_output_subdir(faster_dir, mouse_info["mouse_info"])
+            if output_subdir in ("vehicle_24h_before6h", "rapalog_24h_before6h"):
+                drug_name = output_subdir.split("_", 1)[0]
+                output_subdir = format_injection_subdir(
+                    drug_name,
+                    injection_before_hours,
+                    injection_after_hours,
+                )
             output_dir = output_root / output_subdir if output_subdir else output_root
             output_dir.mkdir(parents=True, exist_ok=True)
             if should_skip_output(output_dir):
