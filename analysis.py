@@ -673,6 +673,7 @@ def plot_ts_1group(mean,sem,count,g_name,sleep_stage,ax1,val_name,y_label):
     label_str="vehicle"
     plot_timeseries(ax1,x_val,y,err,"k",label_str)
 
+    x_min = float(np.min(x_val)) if x_val.size else 0
     x_max = float(np.max(x_val)) if x_val.size else 0
     x_val, y, err=extract_mean_n_err(mean,sem,g_name,"rapalog",sleep_stage,val_name)
     sample_n=count.loc[pd.IndexSlice[g_name,"rapalog",sleep_stage,0]][0]
@@ -681,6 +682,7 @@ def plot_ts_1group(mean,sem,count,g_name,sleep_stage,ax1,val_name,y_label):
     plot_timeseries(ax1,x_val,y,err,"r",label_str)
     
     if x_val.size:
+        x_min = min(x_min, float(np.min(x_val)))
         x_max = max(x_max, float(np.max(x_val)))
     for ax in [ax1]:
         ax.plot([0,60],[0.1,0.1],linewidth=5,color="yellow")
@@ -730,11 +732,12 @@ def plot_ts_1group(mean,sem,count,g_name,sleep_stage,ax1,val_name,y_label):
             ax.set_yticks([0,20,40,60])
         #ax.set_ylabel("NREM sleep duration (min/h)")
         ax.set_ylabel(y_label)
-        ax.set_xticks(np.arange(0, x_max + 1, 6) if x_max else [0])
-        ax.set_xticklabels([int(x) for x in ax.get_xticks()])
-        ax.plot([0,0],[0,ax.get_ylim()[1]],"--",color="gray")
+        xticks = np.arange(x_min, x_max + 1, 6) if x_max != x_min else [x_min]
+        ax.set_xticks(xticks)
+        ax.set_xticklabels([int(x) for x in xticks])
+        ax.plot([0, 0], [0, ax.get_ylim()[1]], "--", color="gray")
         ax.set_xlabel("Time relative to injection (h)")
-        ax.set_xlim([0, x_max])
+        ax.set_xlim([x_min, x_max])
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         ax.legend(fontsize=10,frameon=False)
@@ -745,6 +748,7 @@ def plot_ts_mouse_groups(mean, sem, count, mouse_groups, drug, sleep_stage, ax1,
     palette = sns.color_palette("colorblind", n_colors=len(mouse_groups))
 
     plotted_any = False
+    x_min = 0
     x_max = 0
     for g_name, color in zip(mouse_groups, palette):
         try:
@@ -757,6 +761,7 @@ def plot_ts_mouse_groups(mean, sem, count, mouse_groups, drug, sleep_stage, ax1,
         plot_timeseries(ax1, x_val, y, err, color, g_name)
         plotted_any = True
         if x_val.size:
+            x_min = min(x_min, float(np.min(x_val)))
             x_max = max(x_max, float(np.max(x_val)))
 
     if not plotted_any:
@@ -810,11 +815,12 @@ def plot_ts_mouse_groups(mean, sem, count, mouse_groups, drug, sleep_stage, ax1,
             ax.set_ylim([0,60])
             ax.set_yticks([0,20,40,60])
         ax.set_ylabel(y_label)
-        ax.set_xticks(np.arange(0, x_max + 1, 6) if x_max else [0])
-        ax.set_xticklabels([int(x) for x in ax.get_xticks()])
-        ax.plot([0,0],[0,ax.get_ylim()[1]],"--",color="gray")
+        xticks = np.arange(x_min, x_max + 1, 6) if x_max != x_min else [x_min]
+        ax.set_xticks(xticks)
+        ax.set_xticklabels([int(x) for x in xticks])
+        ax.plot([0, 0], [0, ax.get_ylim()[1]], "--", color="gray")
         ax.set_xlabel("Time relative to injection (h)")
-        ax.set_xlim([0, x_max])
+        ax.set_xlim([x_min, x_max])
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         ax.legend(fontsize=10,frameon=False)
