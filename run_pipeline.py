@@ -74,7 +74,9 @@ def ensure_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def run_pipeline(config_path: Path, executed_dir: Optional[Path] = None) -> None:
-    config = ensure_defaults(load_config(config_path))
+    resolved_path = resolve_config_path(config_path)
+    config = ensure_defaults(load_config(resolved_path))
+    config["merge"]["config_path"] = str(resolved_path)
     LOGGER.info("Starting preprocessing step")
     preprocess_project(**config["preprocess"])
 

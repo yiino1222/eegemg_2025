@@ -1098,6 +1098,20 @@ def plot_bargraph_mouse_groups(df, mouse_groups, drug, sleep_stage, y_value, y_l
         ax=ax,
     )
 
+    sns.stripplot(
+        data=sub,
+        x="mouse_group",
+        y=y_value,
+        hue="mouse_group",
+        palette=palette,
+        dodge=False,
+        jitter=True,
+        alpha=0.6,
+        size=4,
+        legend=False,
+        ax=ax,
+    )
+
     for mouse_id, g in sub.groupby("mouse_ID"):
         if len(g["mouse_group"].unique()) < 2:
             continue
