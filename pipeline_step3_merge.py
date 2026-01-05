@@ -1,4 +1,5 @@
 from pathlib import Path
+import shutil
 import argparse
 import json
 
@@ -17,9 +18,20 @@ def merge_and_plot(
     comparison_drug="vehicle",
     mouse_groups_to_compare=None,
     quant_time_windows=None,
+    config_path=None,
 ):
     output_dir = Path(output_dir)
+    if comparison_mode == "mouse_group" and mouse_groups_to_compare:
+        compare_label = "_vs_".join(mouse_groups_to_compare)
+        output_dir = output_dir / compare_label
+    else:
+        output_dir = output_dir / target_group
     output_dir.mkdir(parents=True, exist_ok=True)
+    if config_path:
+        try:
+            shutil.copy2(config_path, output_dir / "config.json")
+        except FileNotFoundError:
+            print(f"[WARN] Config file not found for copy: {config_path}")
 
     merge_result = ana.merge_n_plot(
         analyzed_dir_list,
@@ -76,6 +88,7 @@ def main() -> None:
         help="Mouse groups to compare when comparison-mode is mouse_group (defaults to all groups found).",
     )
     parser.add_argument("--output-dir", type=Path, required=True, help="Directory to store merged outputs")
+    parser.add_argument("--config-path", type=Path, default=None, help="Optional config.json to copy into output dir")
     parser.add_argument("--epoch-len-sec", type=int, default=8)
     parser.add_argument("--sample-freq", type=int, default=128)
     parser.add_argument(
@@ -102,6 +115,7 @@ def main() -> None:
         args.comparison_drug,
         args.mouse_groups_to_compare,
         quant_time_windows,
+        args.config_path,
     )
 
 
