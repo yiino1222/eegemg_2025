@@ -192,6 +192,7 @@ def make_df_from_summary_dic(stats_fname):
     transition_array = stats["swtrans_profile"]  # [hourly_psw, hourly_pws]
     bout_array = stats["bout_profile"]
     time_offset = stats.get("time_in_hour_offset", 0)
+    print(f"[DEBUG] time_in_hour_offset from stats: {time_offset}")
     
     # リストを用意
     stage_merge_list = []
@@ -357,6 +358,7 @@ def merge_hourly_psd_ts_csv(dir):
     if stats_path.exists():
         stats = np.load(stats_path, allow_pickle=True)[()]
         time_offset = stats.get("time_in_hour_offset", 0)
+        print(f"[DEBUG] time_in_hour_offset for PSD CSV: {time_offset}")
         df["time_in_hour"] = df["time_in_hour"] + time_offset
     #nanを前後から補完
     for column in frequency_columns:
@@ -478,7 +480,7 @@ def read_psd_profile_csv(csvpath):
     return merge_df
 
 
-def process_stats_path_list(analyzed_dir_list,vehicle_path,rapalog_path):
+def process_stats_path_list(analyzed_dir_list, vehicle_path, rapalog_path):
     stats_list_vehicle=[]
     stats_list_rapalog=[]
     #vehicle_path="vehicle_60h/stagetime_stats.npy"
@@ -604,17 +606,27 @@ def calculate_delta(meta_merge_df):
     delta_df.drop(columns=["drug","min_per_hour"],inplace=True)
     return(delta_df)
 
-def merge_sleep_stage_df(analyzed_dir_list,epoch_len_sec,sample_freq):
-    vehicle_path="vehicle_24h_before6h/stagetime_stats.npy"
-    rapalog_path="rapalog_24h_before6h/stagetime_stats.npy"
-    meta_stage_df,meta_merge_df_sw,meta_stage_bout_df,meta_psd_start_end_df=merge_individual_df(analyzed_dir_list,
-                                                                          vehicle_path,rapalog_path,epoch_len_sec,sample_freq)
+def merge_sleep_stage_df(analyzed_dir_list, epoch_len_sec, sample_freq,
+                         injection_before_hours=6, injection_after_hours=18):
+    window_suffix = f"before{int(injection_before_hours)}h_after{int(injection_after_hours)}h"
+    vehicle_path = f"vehicle_{window_suffix}/stagetime_stats.npy"
+    rapalog_path = f"rapalog_{window_suffix}/stagetime_stats.npy"
+    meta_stage_df,meta_merge_df_sw,meta_stage_bout_df,meta_psd_start_end_df=merge_individual_df(
+        analyzed_dir_list,
+        vehicle_path,
+        rapalog_path,
+        epoch_len_sec,
+        sample_freq,
+    )
     return meta_stage_df,meta_merge_df_sw,meta_stage_bout_df,meta_psd_start_end_df
 
-def merge_psd_df(analyzed_dir_list):
-    subdir_vehicle="vehicle_24h_before6h"
-    subdir_rapalog="rapalog_24h_before6h"
-    merge_psd_ts_df,merge_psd_profile_df=meta_merge_psd_csv(analyzed_dir_list,subdir_vehicle,subdir_rapalog)
+def merge_psd_df(analyzed_dir_list, injection_before_hours=6, injection_after_hours=18):
+    window_suffix = f"before{int(injection_before_hours)}h_after{int(injection_after_hours)}h"
+    subdir_vehicle = f"vehicle_{window_suffix}"
+    subdir_rapalog = f"rapalog_{window_suffix}"
+    merge_psd_ts_df,merge_psd_profile_df=meta_merge_psd_csv(
+        analyzed_dir_list, subdir_vehicle, subdir_rapalog
+    )
     return merge_psd_ts_df,merge_psd_profile_df
 
 def group_analysis_each_df(df: pd.DataFrame):
@@ -1378,6 +1390,8 @@ def merge_n_plot(
     comparison_drug="vehicle",
     mouse_groups_to_compare=None,
     quant_time_windows=None,
+    injection_before_hours=6,
+    injection_after_hours=18,
 ):
     quant_time_windows = quant_time_windows or {}
 
@@ -1404,7 +1418,13 @@ def merge_n_plot(
     psd_after_label = format_window_text(norm_psd_after_window)
 
     #merge analyzed data
-    meta_stage_df,meta_sw_trans_df,meta_stage_bout_df,meta_psd_start_end_df=merge_sleep_stage_df(analyzed_dir_list,epoch_len_sec,sample_freq)
+    meta_stage_df,meta_sw_trans_df,meta_stage_bout_df,meta_psd_start_end_df=merge_sleep_stage_df(
+        analyzed_dir_list,
+        epoch_len_sec,
+        sample_freq,
+        injection_before_hours=injection_before_hours,
+        injection_after_hours=injection_after_hours,
+    )
     if meta_stage_df.empty:
         print("[WARN] No merged stagetime data available; skipping plot generation.")
         return {
@@ -1413,7 +1433,11 @@ def merge_n_plot(
             "meta_stage_bout_df": meta_stage_bout_df,
             "meta_psd_start_end_df": meta_psd_start_end_df,
         }
-    merge_psd_ts_df,merge_psd_profile_df=merge_psd_df(analyzed_dir_list)
+    merge_psd_ts_df,merge_psd_profile_df=merge_psd_df(
+        analyzed_dir_list,
+        injection_before_hours=injection_before_hours,
+        injection_after_hours=injection_after_hours,
+    )
     
     #rename group if needed
     meta_stage_df=rename_group_name_bulk(meta_stage_df,group_rename_dic)
