@@ -191,13 +191,7 @@ def make_df_from_summary_dic(stats_fname):
     data_array = stats["stagetime_profile"]
     transition_array = stats["swtrans_profile"]  # [hourly_psw, hourly_pws]
     bout_array = stats["bout_profile"]
-    time_offset = stats.get("time_in_hour_offset")
-    if time_offset is None:
-        match = re.search(r"_(\d+(?:p\d+)?)h_before", str(stats_fname))
-        if match:
-            time_offset = -float(match.group(1).replace("p", "."))
-        else:
-            time_offset = 0
+    time_offset = stats.get("time_in_hour_offset", 0)
     
     # リストを用意
     stage_merge_list = []
@@ -362,13 +356,7 @@ def merge_hourly_psd_ts_csv(dir):
     stats_path = Path(dir).parent / "stagetime_stats.npy"
     if stats_path.exists():
         stats = np.load(stats_path, allow_pickle=True)[()]
-        time_offset = stats.get("time_in_hour_offset")
-        if time_offset is None:
-            match = re.search(r"_(\d+(?:p\d+)?)h_before", str(stats_path))
-            if match:
-                time_offset = -float(match.group(1).replace("p", "."))
-            else:
-                time_offset = 0
+        time_offset = stats.get("time_in_hour_offset", 0)
         df["time_in_hour"] = df["time_in_hour"] + time_offset
     #nanを前後から補完
     for column in frequency_columns:
