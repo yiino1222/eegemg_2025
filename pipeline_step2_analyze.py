@@ -168,7 +168,7 @@ def format_injection_subdir(drug_name: str, before_hours: float, after_hours: fl
             return str(int(value))
         return str(value).replace(".", "p")
 
-    return f"{drug_name}_{_format_hours(before_hours)}h_before{_format_hours(after_hours)}h"
+    return f"{drug_name}_before{_format_hours(before_hours)}h_after{_format_hours(after_hours)}h"
 def stagetime_in_a_day(stage_call):
     """Count each stage in the stage_call list and calculate
     the daily stage time in minuites.
