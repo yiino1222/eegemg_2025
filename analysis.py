@@ -499,11 +499,12 @@ def process_stats_path_list(analyzed_dir_list, vehicle_path, rapalog_path):
         stats_list_rapalog.append(rapalog_stats)
     return stats_list_vehicle,stats_list_rapalog
 
-def process_psd_info_path_list(analyzed_dir_list):
+def process_psd_info_path_list(analyzed_dir_list, injection_before_hours=6, injection_after_hours=18):
     psd_info_list_vehicle=[]
     psd_info_list_rapalog=[]
-    vehicle_path="vehicle_24h_before6h/psd_info_list.pkl"
-    rapalog_path="rapalog_24h_before6h/psd_info_list.pkl"
+    window_suffix = f"before{int(injection_before_hours)}h_after{int(injection_after_hours)}h"
+    vehicle_path=f"vehicle_{window_suffix}/psd_info_list.pkl"
+    rapalog_path=f"rapalog_{window_suffix}/psd_info_list.pkl"
     #vehicle_path="vehicle_84h_before_24h_after_60h/stagetime_stats.npy"
     #rapalog_path="rapalog_84h_before_24h_after_60h/stagetime_stats.npy"
     for dir in analyzed_dir_list:
@@ -518,9 +519,21 @@ def process_psd_info_path_list(analyzed_dir_list):
         psd_info_list_rapalog.append(rapalog_info)
     return psd_info_list_vehicle,psd_info_list_rapalog
 
-def merge_individual_df(analyzed_dir_list, vehicle_path, rapalog_path, epoch_len_sec, ample_freq):
+def merge_individual_df(
+    analyzed_dir_list,
+    vehicle_path,
+    rapalog_path,
+    epoch_len_sec,
+    ample_freq,
+    injection_before_hours=6,
+    injection_after_hours=18,
+):
     stats_list_vehicle, stats_list_rapalog = process_stats_path_list(analyzed_dir_list, vehicle_path, rapalog_path)
-    psd_info_list_vehicle, psd_info_list_rapalog = process_psd_info_path_list(analyzed_dir_list)
+    psd_info_list_vehicle, psd_info_list_rapalog = process_psd_info_path_list(
+        analyzed_dir_list,
+        injection_before_hours=injection_before_hours,
+        injection_after_hours=injection_after_hours,
+    )
     
     meta_merge_list = []  # meta_merge_df用リスト
     meta_merge_list2 = []  # meta_merge_df2用リスト
@@ -621,6 +634,8 @@ def merge_sleep_stage_df(analyzed_dir_list, epoch_len_sec, sample_freq,
         rapalog_path,
         epoch_len_sec,
         sample_freq,
+        injection_before_hours=injection_before_hours,
+        injection_after_hours=injection_after_hours,
     )
     return meta_stage_df,meta_merge_df_sw,meta_stage_bout_df,meta_psd_start_end_df
 
@@ -1213,12 +1228,14 @@ def calculate_mean_power(df: pd.DataFrame, x: int, y: int) -> pd.DataFrame:
     time_in_hour ∈ [x, y] で平均したパワー（f@* と delta/theta_power）をマウス単位へ集約。
     Index: (exp_label は落とす / 他は残す)
     """
+    if df.empty:
+        return pd.DataFrame()
     idx_names = list(df.index.names)
     keep_idx = [n for n in idx_names if n not in ("exp_label", "time_in_hour")]
 
     dfr = df.reset_index()
     if "time_in_hour" not in dfr.columns:
-        raise ValueError("time_in_hour が見つかりません。")
+        return pd.DataFrame()
 
     # 周波数列は 'f@' で始まる
     freq_cols = [c for c in dfr.columns if isinstance(c, str) and c.startswith("f@")]
@@ -1227,6 +1244,8 @@ def calculate_mean_power(df: pd.DataFrame, x: int, y: int) -> pd.DataFrame:
         if extra in dfr.columns:
             freq_cols.append(extra)
 
+    if not freq_cols:
+        return pd.DataFrame()
     dfr = dfr[(dfr["time_in_hour"] >= x) & (dfr["time_in_hour"] <= y)]
 
     if "stage" in idx_names:
