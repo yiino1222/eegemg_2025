@@ -583,10 +583,14 @@ def merge_individual_df(analyzed_dir_list, vehicle_path, rapalog_path, epoch_len
 
 
 def exclude_mouse(meta_merge_df,exclude_mouse_list):
-    index_name_list=list(meta_merge_df.index.names)
-    meta_merge_df=meta_merge_df.reset_index()
-    meta_merge_df=meta_merge_df[~meta_merge_df.mouse_ID.isin(exclude_mouse_list)]
-    meta_merge_df=meta_merge_df.set_index(index_name_list)
+    if meta_merge_df.empty:
+        return meta_merge_df
+    index_name_list = list(meta_merge_df.index.names)
+    meta_merge_df = meta_merge_df.reset_index()
+    if "mouse_ID" not in meta_merge_df.columns:
+        return meta_merge_df.set_index(index_name_list)
+    meta_merge_df = meta_merge_df[~meta_merge_df.mouse_ID.isin(exclude_mouse_list)]
+    meta_merge_df = meta_merge_df.set_index(index_name_list)
     return meta_merge_df
 
 def plot_timeseries(ax,x_val,y_val,y_err,plot_color,label):
