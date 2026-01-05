@@ -785,7 +785,7 @@ def plot_ts_1group(mean,sem,count,g_name,sleep_stage,ax1,val_name,y_label):
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         ax.legend(fontsize=10,frameon=False)
-        plot_light_dark_bar(ax, x_min, x_max)
+        #plot_light_dark_bar(ax, x_min, x_max)
     plt.subplots_adjust(wspace=0.4, hspace=0.6)
 
 
@@ -867,7 +867,7 @@ def plot_ts_mouse_groups(mean, sem, count, mouse_groups, drug, sleep_stage, ax1,
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         ax.legend(fontsize=10,frameon=False)
-        plot_light_dark_bar(ax, x_min, x_max)
+        #plot_light_dark_bar(ax, x_min, x_max)
     plt.subplots_adjust(wspace=0.4, hspace=0.6)
 
 def plot_PSD_1group(mean,sem,count,g_name,sleep_stage,ax1,y_label):
