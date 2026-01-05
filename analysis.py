@@ -700,10 +700,20 @@ def extract_mean_n_err_for_PSD(mean,sem,g_name,drug,sleep_stage):
     err=np.array(sem.loc[pd.IndexSlice[g_name,drug,sleep_stage,:],frequency_columns]).flatten()
     return y,err
 
+def plot_light_dark_bar(ax, x_min, x_max, light_on=5, dark_on=17, line_width=5):
+    if x_max <= x_min:
+        return
+    y_min, y_max = ax.get_ylim()
+    y_pos = y_min + (y_max - y_min) * 0.02
+    current = x_min
+    while current < x_max:
+        next_boundary = min(np.floor(current) + 1, x_max)
+        hour_mod = current % 24
+        color = "yellow" if light_on <= hour_mod < dark_on else "k"
+        ax.plot([current, next_boundary], [y_pos, y_pos], linewidth=line_width, color=color, solid_capstyle="butt")
+        current = next_boundary
+
 def plot_ts_1group(mean,sem,count,g_name,sleep_stage,ax1,val_name,y_label):
-    dark_period=[[0,12],[24,36],[48,60]]
-    light_period=[[12,24],[36,48]]
-    
     x_val, y, err=extract_mean_n_err(mean,sem,g_name,"vehicle",sleep_stage,val_name)
     sample_n=count.loc[pd.IndexSlice[g_name,"vehicle",sleep_stage,0]][0]
     #label_str="vehicle (n=%d)"%sample_n
@@ -722,9 +732,6 @@ def plot_ts_1group(mean,sem,count,g_name,sleep_stage,ax1,val_name,y_label):
         x_min = min(x_min, float(np.min(x_val)))
         x_max = max(x_max, float(np.max(x_val)))
     for ax in [ax1]:
-        ax.plot([0,60],[0.1,0.1],linewidth=5,color="yellow")
-        ax.plot([6.5,17.5],[0.1,0.1],linewidth=5,color="k")
-        #ax.plot([37,47],[0.1,0.1],linewidth=10,color="yellow")
         if val_name=="min_per_hour":
             if sleep_stage=="REM":
                 ax.set_ylim([0,20])
@@ -778,6 +785,7 @@ def plot_ts_1group(mean,sem,count,g_name,sleep_stage,ax1,val_name,y_label):
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         ax.legend(fontsize=10,frameon=False)
+        plot_light_dark_bar(ax, x_min, x_max)
     plt.subplots_adjust(wspace=0.4, hspace=0.6)
 
 
@@ -806,8 +814,6 @@ def plot_ts_mouse_groups(mean, sem, count, mouse_groups, drug, sleep_stage, ax1,
         return
 
     for ax in [ax1]:
-        ax.plot([0, 60], [0.1, 0.1], linewidth=5, color="yellow")
-        ax.plot([6.5, 17.5], [0.1, 0.1], linewidth=5, color="k")
         if val_name=="min_per_hour":
             if sleep_stage=="REM":
                 ax.set_ylim([0,20])
@@ -861,6 +867,7 @@ def plot_ts_mouse_groups(mean, sem, count, mouse_groups, drug, sleep_stage, ax1,
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         ax.legend(fontsize=10,frameon=False)
+        plot_light_dark_bar(ax, x_min, x_max)
     plt.subplots_adjust(wspace=0.4, hspace=0.6)
 
 def plot_PSD_1group(mean,sem,count,g_name,sleep_stage,ax1,y_label):
@@ -1145,13 +1152,13 @@ def plot_bargraph_mouse_groups(df, mouse_groups, drug, sleep_stage, y_value, y_l
         data=sub,
         x="mouse_group",
         y=y_value,
-        hue="mouse_group",
-        palette=palette,
+        color="k",
         dodge=False,
         jitter=True,
-        alpha=0.6,
+        alpha=1.0,
         size=4,
         legend=False,
+        zorder=3,
         ax=ax,
     )
 
