@@ -100,25 +100,25 @@ class CustomedGHMM(hmm.GaussianHMM):
             else:
                 sr = 1
             w[i] = w[i] * sr
-        
+
         # confine the REM cluster within negative low-freq and above the diagonal line
         prn_ax = v@np.diag(w)  # 3x3 matrix: each column is the principal axis
         for i in range(3):
             arr_hd = rem_mean + prn_ax[:, i] # the arrow head from the mean
             narr_hd = rem_mean - prn_ax[:, i] # the negative arrow head from the mean
-            
+
             # condition 1: negative low-freq and BELOW the diagonal line
             if arr_hd[0] > self.nr_boundary and arr_hd[1] < arr_hd[0]:
                 # condition 2: if positive high-freq > 0 then allow to grow onto the diagonal line
                 if arr_hd[1] > 0:
                     sr = self._shrink_ratio(arr_hd, rem_mean)
-                # Otherwise (negative high-freq) then only allow to reach onto the y-axis. 
-                else: 
+                # Otherwise (negative high-freq) then only allow to reach onto the y-axis.
+                else:
                     sr = (self.nr_boundary - rem_mean[0])/(arr_hd[0] - rem_mean[0]) # shrink ratio
             elif narr_hd[0] > self.nr_boundary and narr_hd[1] < narr_hd[0]:
                 if narr_hd[1] > 0:
                     sr = self._shrink_ratio(narr_hd, rem_mean)
-                else: 
+                else:
                     sr = (self.nr_boundary - rem_mean[0])/(narr_hd[0] - rem_mean[0]) # shrink ratio
             else:
                 sr = 1
@@ -133,7 +133,7 @@ class CustomedGHMM(hmm.GaussianHMM):
             else:
                 sr = 1
             w[i] = w[i] * sr
-        
+
         cov_updated = v@np.diag((w/2)**2)@v.T
 
         return cov_updated
@@ -173,7 +173,7 @@ class CustomedGHMM(hmm.GaussianHMM):
 
         return cov_updated
 
-    
+
     def _confine_NREM_in_boundary(self, nrem_mean, nrem_cov):
         """ By definition, NREM cluster is not likely to cross the diagonal line.
         This function focuses on the ellipsoid that represents the 95% confidence area
@@ -208,7 +208,7 @@ class CustomedGHMM(hmm.GaussianHMM):
         cov_updated = v@np.diag((w/2)**2)@v.T
 
         return cov_updated
- 
+
 
     def _shrink_ratio(self, arr_hd, mn):
         r = (arr_hd[1] - mn[1])/(arr_hd[0]-mn[0])
@@ -230,7 +230,7 @@ class CustomedGHMM(hmm.GaussianHMM):
         if 'm' in self.params:
             self.means_ = ((means_weight * means_prior + ghmm_stats['obs'])
                            / (means_weight + denom))
- 
+
         if 'c' in self.params:
             covars_prior = self.covars_prior
             covars_weight = self.covars_weight
@@ -653,7 +653,7 @@ def plot_scatter2D(points_2D, classes, means, covariances, colors, xlabel, ylabe
 def pickle_voltage_matrices(eeg_vm, emg_vm, data_dir, device_id):
     """ To save time for reading CSV files, pickle the voltage matrices
     in pickle files.
-    
+
     Args:
         eeg_vm (np.array): voltage matrix for EEG data
         emg_vm (np.array): voltage matrix for EMG data
@@ -718,7 +718,7 @@ def pickle_powerspec_matrices(spec_norm_eeg, spec_norm_emg, result_dir_path, dev
 
 def pickle_cluster_params(means2, covars2, c_means, c_covars, result_dir_path, device_id):
     """ pickles the cluster parameters
-    
+
     Args:
         means2 (np.array(2,2)): a mean matrix of 2 stage-clusters
         covars2 (np.array(2,2,2)): a covariance matrix of 2 stage-clusters
@@ -737,7 +737,7 @@ def pickle_cluster_params(means2, covars2, c_means, c_covars, result_dir_path, d
 
 def remove_extreme_voltage(y, sample_freq):
     """An optional function to remove periodic-spike noises such as
-    heart beat in EMG. Since the spikes are ofhen above 1.64 SD (upper 10%) 
+    heart beat in EMG. Since the spikes are ofhen above 1.64 SD (upper 10%)
     within the data region of interest, FASTER2 tries to replace those points with
     randam values.
     Note: This function is destructive i.e. it changes values of the
@@ -757,15 +757,15 @@ def remove_extreme_voltage(y, sample_freq):
 
 
 def remove_extreme_power(y):
-    """In FASTER2, the spectrum powers are normalized so that the mean and 
-    SD of each frequency power over all epochs become 0 and 1, respectively.  
-    This function removes extremely high or low powers in the normalized 
-    spectrum by replacing the value with a random number sampled from the 
-    noraml distribution: N(0, 1). 
-    
+    """In FASTER2, the spectrum powers are normalized so that the mean and
+    SD of each frequency power over all epochs become 0 and 1, respectively.
+    This function removes extremely high or low powers in the normalized
+    spectrum by replacing the value with a random number sampled from the
+    noraml distribution: N(0, 1).
+
     Args:
         y (np.array(1)): a vector of normalized power spectrum
-    
+
     Returns:
         float: The ratio of the replaced exreme values in the given vector.
     """
@@ -1317,7 +1317,7 @@ def preprocess_edf(idx,edf,epoch_num,sample_freq,epoch_len_sec,result_dir,device
     os.makedirs(path2figures, exist_ok=True)
 
     # draw the bias histogram
-    plot_hist_on_separation_axis(path2figures, cwb['proj_data'], cwb['means'], cwb['covars'], cwb['weights']) 
+    plot_hist_on_separation_axis(path2figures, cwb['proj_data'], cwb['means'], cwb['covars'], cwb['weights'])
 
     # draw scatter plots
     draw_scatter_plots(path2figures, stage_coord, pred_2D, means_2D, covars_2D, pred_3D, means_3D, covars_3D)
@@ -1351,6 +1351,19 @@ def preprocess_project(prj_dir: Path, result_dir_name: str, epoch_len_sec: int, 
         for idx, edf_path in enumerate(sorted(data_dir.glob("*.edf")), start=1):
             with mne.io.read_raw_edf(edf_path, preload=False) as raw:
                 epoch_num = int(raw.n_times // (sample_freq * epoch_len_sec))
+            original_stem = edf_path.stem  # e.g. SN009-012_C4_20260111_0659
+
+            match = re.search(r'_C(\d+)_', original_stem)
+            if match:
+                channel_num = int(match.group(1))
+                device_id = f"Ch{channel_num - 1}"
+                print_log(f"Mapping filename to device_id: {original_stem} -> {device_id}")
+            else:
+                # If file name does not match the rule, raise an error.
+                error_msg = f"ValueError: Expected pattern '_C{{number}}_' not found in filename '{edf_path.name}'. " \
+                            f"Check if the filename follows the required convention."
+                print_log(error_msg)
+                raise ValueError(error_msg)
 
             preprocess_edf(
                 idx,
@@ -1359,11 +1372,10 @@ def preprocess_project(prj_dir: Path, result_dir_name: str, epoch_len_sec: int, 
                 sample_freq,
                 epoch_len_sec,
                 str(result_dir),
-                edf_path.stem,
+                device_id,
                 str(data_dir),
                 offset_in_msec=offset_in_msec,
             )
-
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Preprocess EDF files for EEG/EMG analysis")
