@@ -2213,7 +2213,7 @@ def process_psd_profile(psd_info_list, log_psd_info_list, percentage_psd_info_li
 
 def process_psd_timeseries(psd_info_list, percentage_psd_info_list, epoch_range, epoch_len_sec, sample_freq, output_dir, psd_type, vol_unit='V'):
     freq_bins = sp.psd_freq_bins(sample_freq)
-    bidx_delta_freq = (freq_bins<4) # 11 bins
+    bidx_delta_freq = (freq_bins>0.5) & (freq_bins<4) # 11 bins 
     bidx_all_freq = np.full(129, True)
 
     print_log(f'Making the delta-power timeseries in all stages (type:{psd_type})')
