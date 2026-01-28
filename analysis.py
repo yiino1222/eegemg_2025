@@ -1758,7 +1758,7 @@ def merge_n_plot(
     
     # gridspecを作成
     # gridspecを作成
-    row_num=5
+    row_num=7
     col_num=3
     
     gs = gridspec.GridSpec(row_num,col_num)
@@ -1816,6 +1816,21 @@ def merge_n_plot(
                 y_label=f"relative theta power change\n{psd_after_label}",ax=axes[13],is_norm=True)
     plot_bar_dispatch(df,sleep_stage="REM",y_value="theta_power",
                 y_label=f"relative theta power change\n{psd_after_label}",ax=axes[14],is_norm=True)
+
+    # 6行目: 各ステージの生のデルタ・シータパワー（標準化なし）
+    df=merge_psd_ts_df_after
+    plot_bar_dispatch(df,sleep_stage="Wake",y_value="delta_power",
+                y_label=f"raw delta power\n{psd_after_label}",ax=axes[15])
+    plot_bar_dispatch(df,sleep_stage="NREM",y_value="delta_power",
+                y_label=f"raw delta power\n{psd_after_label}",ax=axes[16])
+    plot_bar_dispatch(df,sleep_stage="REM",y_value="delta_power",
+                y_label=f"raw delta power\n{psd_after_label}",ax=axes[17])
+    plot_bar_dispatch(df,sleep_stage="Wake",y_value="theta_power",
+                y_label=f"raw theta power\n{psd_after_label}",ax=axes[18])
+    plot_bar_dispatch(df,sleep_stage="NREM",y_value="theta_power",
+                y_label=f"raw theta power\n{psd_after_label}",ax=axes[19])
+    plot_bar_dispatch(df,sleep_stage="REM",y_value="theta_power",
+                y_label=f"raw theta power\n{psd_after_label}",ax=axes[20])
 
 
     plt.tight_layout()
