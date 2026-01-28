@@ -111,6 +111,13 @@ When running `pipeline_step3_merge.py` directly, the same mapping can be passed 
 `--quant-time-windows '{"stage_after":[6,7], "psd_after":[6,7]}'`. The selected windows are also printed on the bar plot
 axes so the quantified interval is explicit.
 
+> **Note on bar graph windows (including `mouse_group_comparison` mode):** Quantitative bar graphs are always computed
+> from the **after** window. In `merge_n_plot`, the bar graphs use `meta_stage_n_bout_df_after` (derived from
+> `stage_after_window`) and `merge_norm_psd_ts_df_after` (derived from `norm_psd_after_window`); the **before** window is
+> not used for bar graphs (it is used for plots like the PSD “before” panel). When you set
+> `quant_time_windows.stage_after` and `quant_time_windows.norm_psd_after`, those **after** windows directly determine
+> the bar graph quantification range.
+
 ---
 
 ## Overview of the Analysis Workflow
