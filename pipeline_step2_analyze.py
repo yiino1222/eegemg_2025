@@ -179,6 +179,10 @@ def format_injection_subdir(drug_name: str, before_hours: float, after_hours: fl
         return str(value).replace(".", "p")
 
     return f"{drug_name}_before{_format_hours(before_hours)}h_after{_format_hours(after_hours)}h"
+
+
+def format_drug_result_subdir(drug_name: str) -> Path:
+    return Path(drug_name) / f"result_of_{drug_name}"
 def stagetime_in_a_day(stage_call):
     """Count each stage in the stage_call list and calculate
     the daily stage time in minuites.
@@ -2684,11 +2688,7 @@ def analyze_project(
                 epoch_end = int(end_offset // epoch_len_sec)
                 epoch_range = range(epoch_start, epoch_end)
 
-                output_subdir = format_injection_subdir(
-                    drug_name,
-                    injection_before_hours,
-                    injection_after_hours,
-                )
+                output_subdir = format_drug_result_subdir(drug_name)
                 output_dir = output_root / output_subdir
                 output_dir.mkdir(parents=True, exist_ok=True)
                 if should_skip_output(output_dir):
@@ -2706,11 +2706,7 @@ def analyze_project(
                 )
         else:
             drug_name = _detect_output_drug_name(faster_dir, mouse_info["mouse_info"])
-            output_subdir = format_injection_subdir(
-                drug_name,
-                injection_before_hours,
-                injection_after_hours,
-            )
+            output_subdir = format_drug_result_subdir(drug_name)
             output_dir = output_root / output_subdir
             output_dir.mkdir(parents=True, exist_ok=True)
             if should_skip_output(output_dir):
