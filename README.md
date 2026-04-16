@@ -271,6 +271,28 @@ You can also provide 3+ conditions, for example:
 ...,2025/12/2 17:00,vehicle,2025/12/3 17:00,druga,2025/12/4 17:00,drugb,2025/12/5 17:00,drugc
 ```
 
+Quick templates (copy/paste):
+
+```csv
+# 2-condition
+Experiment label,drug1_datetime,drug1_name,drug2_datetime,drug2_name
+EXP001,2025/12/2 17:00,vehicle,2025/12/3 17:00,rapalog
+```
+
+```csv
+# 3-condition
+Experiment label,drug1_datetime,drug1_name,drug2_datetime,drug2_name,drug3_datetime,drug3_name
+EXP001,2025/12/2 17:00,vehicle,2025/12/3 17:00,druga,2025/12/4 17:00,drugb
+```
+
+```csv
+# 4-condition
+Experiment label,drug1_datetime,drug1_name,drug2_datetime,drug2_name,drug3_datetime,drug3_name,drug4_datetime,drug4_name
+EXP001,2025/12/2 17:00,vehicle,2025/12/3 17:00,druga,2025/12/4 17:00,drugb,2025/12/5 17:00,drugc
+```
+
+> Note: Step2 normalizes `drugX_name` to lowercase when parsing; keep names consistent with `merge.drug_names` for Step3.
+
 ---
 
 ### 3.5 `mouse.info.csv` (Animal Metadata)
