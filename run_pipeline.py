@@ -79,20 +79,41 @@ def resolve_analyzed_dir_list(config: Dict[str, Any]) -> Dict[str, Any]:
     if merge_conf.get("analyzed_dir_list"):
         return config
 
-    analyzed_root = Path(config["analysis"]["prj_dir"]) / config["analysis"]["output_dir_name"]
-    if not analyzed_root.exists():
-        LOGGER.warning(
-            "merge.analyzed_dir_list is empty and analyzed root does not exist yet: %s",
-            analyzed_root,
-        )
-        return config
+    analysis_conf = config["analysis"]
+    prj_dir = Path(analysis_conf["prj_dir"])
+    output_dir_name = analysis_conf["output_dir_name"]
+    result_dir_name = analysis_conf["result_dir_name"]
+    faster_dir_list = analysis_conf.get("faster_dir_list")
 
-    analyzed_dirs = sorted(str(p) for p in analyzed_root.iterdir() if p.is_dir())
+    if faster_dir_list is None:
+        faster_dir_list = sorted(
+            str(path)
+            for path in prj_dir.rglob(result_dir_name)
+            if path.is_dir()
+        )
+
+    def _output_root_for_faster_dir(faster_dir: str) -> Path:
+        faster_path = Path(faster_dir)
+        if faster_path.name == result_dir_name:
+            faster_path = faster_path.parent
+        if "raw_data" in faster_path.parts:
+            raw_data_index = faster_path.parts.index("raw_data")
+            base_dir = Path(*faster_path.parts[:raw_data_index]) or prj_dir.parent
+            rel_parts = list(faster_path.parts[raw_data_index + 1 :])
+            if rel_parts:
+                last_part = rel_parts[-1]
+                if last_part.startswith("raw_data"):
+                    suffix = last_part[len("raw_data") :]
+                    rel_parts[-1] = f"{output_dir_name}{suffix}"
+            rel_path = Path(*rel_parts)
+            return base_dir / output_dir_name / rel_path
+        return prj_dir / output_dir_name / faster_path.name
+
+    analyzed_dirs = sorted({str(_output_root_for_faster_dir(fd)) for fd in faster_dir_list})
     merge_conf["analyzed_dir_list"] = analyzed_dirs
     LOGGER.info(
-        "merge.analyzed_dir_list was empty; auto-discovered %d analyzed directories under %s",
+        "merge.analyzed_dir_list was empty; auto-discovered %d analyzed directories from step2 outputs",
         len(analyzed_dirs),
-        analyzed_root,
     )
     return config
 
@@ -109,6 +130,7 @@ def run_pipeline(config_path: Path, executed_dir: Optional[Path] = None) -> None
     analyze_project(**config["analysis"])
 
     LOGGER.info("Starting merge and plot step")
+    config = resolve_analyzed_dir_list(config)
     merge_and_plot(**config["merge"])
 
 

@@ -89,9 +89,9 @@ Use `--config /path/to/other.json` when you want to run with a different configu
 }
 ```
 
-If `merge.analyzed_dir_list` is empty (`[]`) when using `run_pipeline.py`, the pipeline now auto-discovers all
-subdirectories under `analysis.prj_dir/analysis.output_dir_name` (for example `/data/raw_data/kaist/analyzed`)
-and uses them as merge targets.
+If `merge.analyzed_dir_list` is empty (`[]`) when using `run_pipeline.py`, merge targets are auto-discovered from
+the same step2 output-location rules used by `pipeline_step2_analyze.py` (based on detected `result` folders and
+their mapped analyzed output directories), then used as merge inputs.
 
 To compare mouse groups (e.g., WT vs KO), set:
 
