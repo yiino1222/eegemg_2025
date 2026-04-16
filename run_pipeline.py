@@ -74,9 +74,33 @@ def ensure_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
     return {"preprocess": preprocess, "analysis": analysis, "merge": merge}
 
 
+def resolve_analyzed_dir_list(config: Dict[str, Any]) -> Dict[str, Any]:
+    merge_conf = config["merge"]
+    if merge_conf.get("analyzed_dir_list"):
+        return config
+
+    analyzed_root = Path(config["analysis"]["prj_dir"]) / config["analysis"]["output_dir_name"]
+    if not analyzed_root.exists():
+        LOGGER.warning(
+            "merge.analyzed_dir_list is empty and analyzed root does not exist yet: %s",
+            analyzed_root,
+        )
+        return config
+
+    analyzed_dirs = sorted(str(p) for p in analyzed_root.iterdir() if p.is_dir())
+    merge_conf["analyzed_dir_list"] = analyzed_dirs
+    LOGGER.info(
+        "merge.analyzed_dir_list was empty; auto-discovered %d analyzed directories under %s",
+        len(analyzed_dirs),
+        analyzed_root,
+    )
+    return config
+
+
 def run_pipeline(config_path: Path, executed_dir: Optional[Path] = None) -> None:
     resolved_path = resolve_config_path(config_path)
     config = ensure_defaults(load_config(resolved_path))
+    config = resolve_analyzed_dir_list(config)
     config["merge"]["config_path"] = str(resolved_path)
     LOGGER.info("Starting preprocessing step")
     preprocess_project(**config["preprocess"])
