@@ -141,21 +141,30 @@ def read_drug_info(data_dir: Path, exp_label: str) -> dict:
     drug_info_path = data_dir / "drug.info.csv"
     if not drug_info_path.exists():
         return {}
-    drug_info_df = pd.read_csv(drug_info_path, parse_dates=["drug1_datetime", "drug2_datetime"])
+    drug_info_df = pd.read_csv(drug_info_path)
     row = drug_info_df.loc[drug_info_df["Experiment label"] == exp_label]
     if row.empty:
         return {}
     row = row.iloc[0]
     drug_map = {}
-    for idx in (1, 2):
-        name_col = f"drug{idx}_name"
-        datetime_col = f"drug{idx}_datetime"
-        if name_col not in row or datetime_col not in row:
+    drug_cols = {}
+    for col in row.index:
+        m = re.fullmatch(r"drug(\d+)_(name|datetime)", str(col))
+        if not m:
+            continue
+        idx = int(m.group(1))
+        kind = m.group(2)
+        drug_cols.setdefault(idx, {})[kind] = col
+
+    for idx in sorted(drug_cols):
+        name_col = drug_cols[idx].get("name")
+        datetime_col = drug_cols[idx].get("datetime")
+        if not name_col or not datetime_col:
             continue
         name = str(row[name_col]).strip().lower()
         if not name or name == "nan":
             continue
-        dt_raw = row[datetime_col]
+        dt_raw = pd.to_datetime(row[datetime_col], errors="coerce")
         if pd.isna(dt_raw):
             continue
         drug_map[name] = dt_raw
@@ -2663,8 +2672,6 @@ def analyze_project(
 
         if drug_map:
             for drug_name, injection_datetime in drug_map.items():
-                if drug_name not in ("vehicle", "rapalog"):
-                    continue
                 window_start = injection_datetime - pd.Timedelta(hours=injection_before_hours)
                 window_end = injection_datetime + pd.Timedelta(hours=injection_after_hours)
                 start_offset = max((window_start - start_datetime).total_seconds(), 0)
