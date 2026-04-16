@@ -63,6 +63,7 @@ def ensure_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
         "comparison_mode": "drug",
         "comparison_drug": "vehicle",
         "mouse_groups_to_compare": [],
+        "drug_names": ["vehicle", "rapalog"],
         "output_dir": "/p-antipsychotics-sleep/figure/output",
         "epoch_len_sec": preprocess["epoch_len_sec"],
         "sample_freq": preprocess["sample_freq"],
