@@ -9,6 +9,7 @@ import pickle
 import argparse
 import copy
 import glob
+import re
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -2635,7 +2636,7 @@ def analyze_project(
             return base_dir / output_dir_name / rel_path
         return prj_dir / output_dir_name / faster_path.name
 
-    def _detect_output_subdir(faster_dir: str, mouse_info_df: pd.DataFrame) -> Optional[str]:
+    def _detect_output_drug_name(faster_dir: str, mouse_info_df: pd.DataFrame) -> str:
         candidates = []
         for column in ("Note", "Experiment label"):
             if column in mouse_info_df.columns:
@@ -2645,10 +2646,13 @@ def analyze_project(
         for value in candidates:
             lower = value.lower()
             if "vehicle" in lower:
-                return "vehicle_24h_before6h"
+                return "vehicle"
             if "rapalog" in lower:
-                return "rapalog_24h_before6h"
-        return None
+                return "rapalog"
+            match = re.search(r"(drug[0-9a-z]+)", lower)
+            if match:
+                return match.group(1)
+        return "drug1"
 
     def should_skip_output(output_dir: Path) -> bool:
         if overwrite:
@@ -2701,15 +2705,13 @@ def analyze_project(
                     time_in_hour_offset=-injection_before_hours,
                 )
         else:
-            output_subdir = _detect_output_subdir(faster_dir, mouse_info["mouse_info"])
-            if output_subdir in ("vehicle_24h_before6h", "rapalog_24h_before6h"):
-                drug_name = output_subdir.split("_", 1)[0]
-                output_subdir = format_injection_subdir(
-                    drug_name,
-                    injection_before_hours,
-                    injection_after_hours,
-                )
-            output_dir = output_root / output_subdir if output_subdir else output_root
+            drug_name = _detect_output_drug_name(faster_dir, mouse_info["mouse_info"])
+            output_subdir = format_injection_subdir(
+                drug_name,
+                injection_before_hours,
+                injection_after_hours,
+            )
+            output_dir = output_root / output_subdir
             output_dir.mkdir(parents=True, exist_ok=True)
             if should_skip_output(output_dir):
                 continue

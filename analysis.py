@@ -411,17 +411,43 @@ def meta_merge_psd_csv(analyzed_dir_list, drug_subdir_map):
 
     for dir in analyzed_dir_list:
         for drug_name, subdir in drug_subdir_map.items():
-            df_append = merge_hourly_psd_ts_csv(os.path.join(dir, subdir, "PSD_raw"))
+            dir_path = Path(dir)
+            candidate_subdirs = [subdir, f"{drug_name}_24h_before6h"]
+            candidate_subdirs.extend(
+                sorted(
+                    p.name for p in dir_path.glob(f"{drug_name}_*")
+                    if p.is_dir() and p.name not in candidate_subdirs
+                )
+            )
+
+            df_append = pd.DataFrame()
+            selected_subdir = None
+            for candidate_subdir in candidate_subdirs:
+                df_try = merge_hourly_psd_ts_csv(os.path.join(dir, candidate_subdir, "PSD_raw"))
+                if not df_try.empty:
+                    df_append = df_try
+                    selected_subdir = candidate_subdir
+                    break
             if not df_append.empty:
                 df_append = add_index(df_append, "drug", drug_name)
                 psd_ts_list.append(df_append)
 
             csv_fname = "PSD_norm_allday_percentage-profile.csv"
-            profile_path = os.path.join(dir, subdir, "PSD_norm", csv_fname)
-            if not os.path.exists(profile_path):
+            profile_path = None
+            profile_subdirs = [selected_subdir] if selected_subdir else candidate_subdirs
+            for candidate_subdir in profile_subdirs:
+                if not candidate_subdir:
+                    continue
+                candidate_profile = os.path.join(dir, candidate_subdir, "PSD_norm", csv_fname)
+                if os.path.exists(candidate_profile):
+                    profile_path = candidate_profile
+                    break
+            if profile_path is None:
                 fallback_path = Path(dir) / "PSD_norm" / csv_fname
                 if fallback_path.exists():
                     profile_path = str(fallback_path)
+                else:
+                    profile_path = os.path.join(dir, subdir, "PSD_norm", csv_fname)
             if os.path.exists(profile_path):
                 df_profile_append = read_psd_profile_csv(profile_path)
                 df_profile_append = add_index(df_profile_append, "drug", drug_name)
@@ -478,9 +504,13 @@ def process_stats_path_list(analyzed_dir_list, drug_stats_paths):
     for dir in analyzed_dir_list:
         fallback_stats = os.path.join(dir, "stagetime_stats.npy")
         for drug_name, rel_path in drug_stats_paths.items():
-            drug_stats = os.path.join(dir, rel_path)
-            if not os.path.exists(drug_stats) and os.path.exists(fallback_stats):
+            candidates = [os.path.join(dir, rel_path), os.path.join(dir, f"{drug_name}_24h_before6h", "stagetime_stats.npy")]
+            candidates.extend(sorted(str(p) for p in Path(dir).glob(f"{drug_name}_*/stagetime_stats.npy")))
+            drug_stats = next((p for p in candidates if os.path.exists(p)), None)
+            if drug_stats is None and os.path.exists(fallback_stats):
                 drug_stats = fallback_stats
+            if drug_stats is None:
+                drug_stats = os.path.join(dir, rel_path)
             stats_map[drug_name].append(drug_stats)
     return stats_map
 
@@ -491,9 +521,13 @@ def process_psd_info_path_list(analyzed_dir_list, drug_names, injection_before_h
         fallback_info = os.path.join(dir, "psd_info_list.pkl")
         for drug_name in drug_names:
             rel_path = f"{drug_name}_{window_suffix}/psd_info_list.pkl"
-            drug_info = os.path.join(dir, rel_path)
-            if not os.path.exists(drug_info) and os.path.exists(fallback_info):
+            candidates = [os.path.join(dir, rel_path), os.path.join(dir, f"{drug_name}_24h_before6h", "psd_info_list.pkl")]
+            candidates.extend(sorted(str(p) for p in Path(dir).glob(f"{drug_name}_*/psd_info_list.pkl")))
+            drug_info = next((p for p in candidates if os.path.exists(p)), None)
+            if drug_info is None and os.path.exists(fallback_info):
                 drug_info = fallback_info
+            if drug_info is None:
+                drug_info = os.path.join(dir, rel_path)
             psd_info_map[drug_name].append(drug_info)
     return psd_info_map
 

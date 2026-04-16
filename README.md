@@ -92,6 +92,8 @@ Use `--config /path/to/other.json` when you want to run with a different configu
 If `merge.analyzed_dir_list` is empty (`[]`) when using `run_pipeline.py`, merge targets are auto-discovered from
 the same step2 output-location rules used by `pipeline_step2_analyze.py` (based on detected `result` folders and
 their mapped analyzed output directories), then used as merge inputs.
+Merge also checks legacy analyzed subfolder patterns such as `<drug>_24h_before6h` in addition to the current
+`<drug>_before{X}h_after{Y}h` format.
 
 To compare mouse groups (e.g., WT vs KO), set:
 
@@ -348,7 +350,11 @@ python pipeline_step2_analyze.py --prj_dir /your_project/raw_data/kaist \
   --output_dir_name analyzed --epoch_len_sec 8 --result_dir_name result
 ```
 
-Outputs are written under `analyzed/.../vehicle_24h_before6h/` and `analyzed/.../rapalog_24h_before6h/`.
+Outputs are written under drug-specific subfolders such as
+`analyzed/.../vehicle_before6h_after18h/`, `analyzed/.../druga_before6h_after18h/`, etc.
+When `drug.info.csv` is missing, Step2 still creates a drug-named subfolder (auto-detected
+from metadata/path, fallback: `drug1_before6h_after18h`) to avoid overwriting root-level
+analysis outputs.
 
 By default, pipeline step 2 extracts a window from **6 hours before** to **18 hours after**
 each injection (`injection_before_hours=6`, `injection_after_hours=18`).
