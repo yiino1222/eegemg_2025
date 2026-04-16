@@ -62,8 +62,9 @@ def merge_and_plot(
         bout_df = pd.read_csv(bout_df)
 
         if len(drug_names) == 2:
+            drug_pair = tuple(drug_names)
             for stage in ("NREM", "Wake", "REM"):
-                ana.wilcoxon_n_paried_t(stage_df, psd_df, bout_df, target_group, stage)
+                ana.wilcoxon_n_paried_t(stage_df, psd_df, bout_df, target_group, stage, drug_pair=drug_pair)
         else:
             print(f"[INFO] Skipping paired two-condition tests because drug_names has {len(drug_names)} conditions.")
 

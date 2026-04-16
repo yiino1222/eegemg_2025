@@ -566,14 +566,22 @@ def plot_timeseries(ax,x_val,y_val,y_err,plot_color,label):
     ax.fill_between(x_val, y_val-y_err, y_val+y_err, facecolor=plot_color, alpha=0.2)
 
 def calculate_delta(meta_merge_df):
-    delta_df=meta_merge_df.loc[pd.IndexSlice[:,:,:,:,:,"rapalog"],:].copy()
+    drug_values = list(meta_merge_df.index.get_level_values("drug").unique())
+    ordered_drugs = _ordered_drug_list(drug_values)
+    if len(ordered_drugs) < 2:
+        raise ValueError("calculate_delta requires at least two drug conditions.")
+    base_drug = "vehicle" if "vehicle" in ordered_drugs else ordered_drugs[0]
+    target_drug = next((d for d in ordered_drugs if d != base_drug), None)
+    if target_drug is None:
+        raise ValueError("calculate_delta could not determine a target drug condition.")
+
+    delta_df=meta_merge_df.loc[pd.IndexSlice[:,:,:,:,:,target_drug],:].copy()
     index_name_list=list(delta_df.index.names)
     delta_df=delta_df.reset_index()
 
-    vehicle_df=meta_merge_df.loc[pd.IndexSlice[:,:,:,:,:,"vehicle"],:].copy()
-    vehicle_df=vehicle_df.reset_index()
+    base_df=meta_merge_df.loc[pd.IndexSlice[:,:,:,:,:,base_drug],:].copy().reset_index()
     index_name_list=[s for s in index_name_list if s != 'drug']
-    delta_df["rapa-vehicle-delta_min_per_hour"]=delta_df["min_per_hour"]-vehicle_df["min_per_hour"]
+    delta_df[f"{target_drug}-{base_drug}-delta_min_per_hour"]=delta_df["min_per_hour"]-base_df["min_per_hour"]
     delta_df=delta_df.set_index(index_name_list)
     delta_df.drop(columns=["drug","min_per_hour"],inplace=True)
     return(delta_df)
@@ -1796,12 +1804,16 @@ def merge_n_plot(
     fig2.savefig(os.path.join(output_dir,"bargraph.pdf"))
     
     
-def wilcoxon_n_paried_t(stage_df,psd_df,bout_df,target_group,stage):
+def wilcoxon_n_paried_t(stage_df,psd_df,bout_df,target_group,stage,drug_pair=("vehicle", "rapalog")):
+    if len(drug_pair) != 2:
+        raise ValueError(f"drug_pair must contain exactly 2 values, got {drug_pair}")
+    drug_a, drug_b = drug_pair
     print(stage)
     print(target_group)
+    print(f"drug pair: {drug_a} vs {drug_b}")
     print("stage duration")
-    data1=stage_df[(stage_df.mouse_group==target_group)&(stage_df.stage==stage)&(stage_df.drug=="vehicle")].min_per_hour
-    data2=stage_df[(stage_df.mouse_group==target_group)&(stage_df.stage==stage)&(stage_df.drug=="rapalog")].min_per_hour
+    data1=stage_df[(stage_df.mouse_group==target_group)&(stage_df.stage==stage)&(stage_df.drug==drug_a)].min_per_hour
+    data2=stage_df[(stage_df.mouse_group==target_group)&(stage_df.stage==stage)&(stage_df.drug==drug_b)].min_per_hour
     from scipy.stats import wilcoxon
     def safe_wilcoxon(a, b, label):
         a = np.asarray(a)
@@ -1826,8 +1838,8 @@ def wilcoxon_n_paried_t(stage_df,psd_df,bout_df,target_group,stage):
     print('p-value:', p_value)
     
     print("stage bout count")
-    data1=bout_df[(bout_df.mouse_group==target_group)&(bout_df.stage==stage)&(bout_df.drug=="vehicle")].bout_count
-    data2=bout_df[(bout_df.mouse_group==target_group)&(bout_df.stage==stage)&(bout_df.drug=="rapalog")].bout_count
+    data1=bout_df[(bout_df.mouse_group==target_group)&(bout_df.stage==stage)&(bout_df.drug==drug_a)].bout_count
+    data2=bout_df[(bout_df.mouse_group==target_group)&(bout_df.stage==stage)&(bout_df.drug==drug_b)].bout_count
     
     # ウィルコクソンの符号順位検定
     statistic, p_value = safe_wilcoxon(data1, data2, "stage bout count")
@@ -1836,8 +1848,8 @@ def wilcoxon_n_paried_t(stage_df,psd_df,bout_df,target_group,stage):
     print('p-value:', p_value)
     
     print("stage bout length")
-    data1=bout_df[(bout_df.mouse_group==target_group)&(bout_df.stage==stage)&(bout_df.drug=="vehicle")].mean_duration_sec
-    data2=bout_df[(bout_df.mouse_group==target_group)&(bout_df.stage==stage)&(bout_df.drug=="rapalog")].mean_duration_sec
+    data1=bout_df[(bout_df.mouse_group==target_group)&(bout_df.stage==stage)&(bout_df.drug==drug_a)].mean_duration_sec
+    data2=bout_df[(bout_df.mouse_group==target_group)&(bout_df.stage==stage)&(bout_df.drug==drug_b)].mean_duration_sec
 
     # ウィルコクソンの符号順位検定
     statistic, p_value = safe_wilcoxon(data1, data2, "stage bout length")
@@ -1846,8 +1858,8 @@ def wilcoxon_n_paried_t(stage_df,psd_df,bout_df,target_group,stage):
     print('p-value:', p_value)
 
     print("norm delta power")
-    data1=psd_df[(psd_df.mouse_group==target_group)&(psd_df.stage==stage)&(psd_df.drug=="vehicle")].delta_power
-    data2=psd_df[(psd_df.mouse_group==target_group)&(psd_df.stage==stage)&(psd_df.drug=="rapalog")].delta_power
+    data1=psd_df[(psd_df.mouse_group==target_group)&(psd_df.stage==stage)&(psd_df.drug==drug_a)].delta_power
+    data2=psd_df[(psd_df.mouse_group==target_group)&(psd_df.stage==stage)&(psd_df.drug==drug_b)].delta_power
 
     # ウィルコクソンの符号順位検定
     statistic, p_value = safe_wilcoxon(data1, data2, "norm delta power")
@@ -1863,8 +1875,8 @@ def wilcoxon_n_paried_t(stage_df,psd_df,bout_df,target_group,stage):
 
     
     print("norm theta power")
-    data1=psd_df[(psd_df.mouse_group==target_group)&(psd_df.stage==stage)&(psd_df.drug=="vehicle")].theta_power
-    data2=psd_df[(psd_df.mouse_group==target_group)&(psd_df.stage==stage)&(psd_df.drug=="rapalog")].theta_power
+    data1=psd_df[(psd_df.mouse_group==target_group)&(psd_df.stage==stage)&(psd_df.drug==drug_a)].theta_power
+    data2=psd_df[(psd_df.mouse_group==target_group)&(psd_df.stage==stage)&(psd_df.drug==drug_b)].theta_power
 
     # ウィルコクソンの符号順位検定
     statistic, p_value = safe_wilcoxon(data1, data2, "norm theta power")
