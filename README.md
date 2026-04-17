@@ -351,9 +351,9 @@ python pipeline_step2_analyze.py --prj_dir /your_project/raw_data/kaist \
 ```
 
 Outputs are written under drug-specific nested subfolders such as
-`analyzed/.../vehicle/result_of_vehicle/`, `analyzed/.../druga/result_of_druga/`, etc.
+`analyzed/.../vehicle/`, `analyzed/.../druga/`, etc.
 When `drug.info.csv` is missing, Step2 still creates a drug-named subfolder (auto-detected
-from metadata/path, fallback: `drug1/result_of_drug1`) to avoid overwriting root-level
+from metadata/path, fallback: `drug1/`) to avoid overwriting root-level
 analysis outputs.
 
 By default, pipeline step 2 extracts a window from **6 hours before** to **18 hours after**

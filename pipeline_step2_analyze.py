@@ -182,7 +182,7 @@ def format_injection_subdir(drug_name: str, before_hours: float, after_hours: fl
 
 
 def format_drug_result_subdir(drug_name: str) -> Path:
-    return Path(drug_name) / f"result_of_{drug_name}"
+    return Path(drug_name)
 def stagetime_in_a_day(stage_call):
     """Count each stage in the stage_call list and calculate
     the daily stage time in minuites.

@@ -412,11 +412,18 @@ def meta_merge_psd_csv(analyzed_dir_list, drug_subdir_map):
     for dir in analyzed_dir_list:
         for drug_name, subdir in drug_subdir_map.items():
             dir_path = Path(dir)
-            candidate_subdirs = [subdir, f"{drug_name}/result_of_{drug_name}", f"{drug_name}_24h_before6h"]
+            candidate_subdirs = [subdir, drug_name, f"{drug_name}/result_of_{drug_name}", f"{drug_name}_24h_before6h"]
             candidate_subdirs.extend(
                 sorted(
                     p.name for p in dir_path.glob(f"{drug_name}_*")
                     if p.is_dir() and p.name not in candidate_subdirs
+                )
+            )
+            candidate_subdirs.extend(
+                sorted(
+                    str(p.relative_to(dir_path))
+                    for p in dir_path.glob(f"{drug_name}")
+                    if p.is_dir() and str(p.relative_to(dir_path)) not in candidate_subdirs
                 )
             )
             candidate_subdirs.extend(
@@ -513,6 +520,7 @@ def process_stats_path_list(analyzed_dir_list, drug_stats_paths):
         for drug_name, rel_path in drug_stats_paths.items():
             candidates = [
                 os.path.join(dir, rel_path),
+                os.path.join(dir, drug_name, "stagetime_stats.npy"),
                 os.path.join(dir, drug_name, f"result_of_{drug_name}", "stagetime_stats.npy"),
                 os.path.join(dir, f"{drug_name}_24h_before6h", "stagetime_stats.npy"),
             ]
@@ -535,6 +543,7 @@ def process_psd_info_path_list(analyzed_dir_list, drug_names, injection_before_h
             rel_path = f"{drug_name}_{window_suffix}/psd_info_list.pkl"
             candidates = [
                 os.path.join(dir, rel_path),
+                os.path.join(dir, drug_name, "psd_info_list.pkl"),
                 os.path.join(dir, drug_name, f"result_of_{drug_name}", "psd_info_list.pkl"),
                 os.path.join(dir, f"{drug_name}_24h_before6h", "psd_info_list.pkl"),
             ]
