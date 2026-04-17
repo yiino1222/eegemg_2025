@@ -74,6 +74,7 @@ Use `--config /path/to/other.json` when you want to run with a different configu
     "comparison_mode": "drug",
     "comparison_drug": "vehicle",
     "mouse_groups_to_compare": [],
+    "drug_names": ["vehicle", "drugA", "drugB"],
     "output_dir": "/data/figures/kaist",
     "epoch_len_sec": 8,
     "sample_freq": 128,
@@ -87,6 +88,12 @@ Use `--config /path/to/other.json` when you want to run with a different configu
   }
 }
 ```
+
+If `merge.analyzed_dir_list` is empty (`[]`) when using `run_pipeline.py`, merge targets are auto-discovered from
+the same step2 output-location rules used by `pipeline_step2_analyze.py` (based on detected `result` folders and
+their mapped analyzed output directories), then used as merge inputs.
+Merge also checks legacy analyzed subfolder patterns such as `<drug>_24h_before6h` in addition to the current
+`<drug>_before{X}h_after{Y}h` format.
 
 To compare mouse groups (e.g., WT vs KO), set:
 
@@ -252,8 +259,9 @@ EEG_p-iino-1-1,EEG_A-E,2025/11/21 7:00,2025/12/5 7:00,128
 #### Rules
 
 * `drugX_name` and `drugX_datetime` must appear as **pairs**
-* `drugX_name` must include `vehicle` and `rapalog`
-* Matching is **case-sensitive** (use lowercase)
+* `X` can be variable length (`drug1`, `drug2`, `drug3`, ...)
+* Drug names are normalized to lowercase in the pipeline
+* The merge step uses `merge.drug_names` to select and order conditions for plotting
 
 #### Example
 
@@ -261,6 +269,35 @@ EEG_p-iino-1-1,EEG_A-E,2025/11/21 7:00,2025/12/5 7:00,128
 ...,drug1_datetime,drug1_name,drug2_datetime,drug2_name
 ...,2025/12/2 17:00,vehicle,2025/12/3 17:00,rapalog
 ```
+
+You can also provide 3+ conditions, for example:
+
+```csv
+...,drug1_datetime,drug1_name,drug2_datetime,drug2_name,drug3_datetime,drug3_name,drug4_datetime,drug4_name
+...,2025/12/2 17:00,vehicle,2025/12/3 17:00,druga,2025/12/4 17:00,drugb,2025/12/5 17:00,drugc
+```
+
+Quick templates (copy/paste):
+
+```csv
+# 2-condition
+Experiment label,drug1_datetime,drug1_name,drug2_datetime,drug2_name
+EXP001,2025/12/2 17:00,vehicle,2025/12/3 17:00,rapalog
+```
+
+```csv
+# 3-condition
+Experiment label,drug1_datetime,drug1_name,drug2_datetime,drug2_name,drug3_datetime,drug3_name
+EXP001,2025/12/2 17:00,vehicle,2025/12/3 17:00,druga,2025/12/4 17:00,drugb
+```
+
+```csv
+# 4-condition
+Experiment label,drug1_datetime,drug1_name,drug2_datetime,drug2_name,drug3_datetime,drug3_name,drug4_datetime,drug4_name
+EXP001,2025/12/2 17:00,vehicle,2025/12/3 17:00,druga,2025/12/4 17:00,drugb,2025/12/5 17:00,drugc
+```
+
+> Note: Step2 normalizes `drugX_name` to lowercase when parsing; keep names consistent with `merge.drug_names` for Step3.
 
 ---
 
@@ -313,7 +350,13 @@ python pipeline_step2_analyze.py --prj_dir /your_project/raw_data/kaist \
   --output_dir_name analyzed --epoch_len_sec 8 --result_dir_name result
 ```
 
-Outputs are written under `analyzed/.../vehicle_24h_before6h/` and `analyzed/.../rapalog_24h_before6h/`.
+Outputs are written under drug-specific nested subfolders such as
+`analyzed/.../vehicle/`, `analyzed/.../druga/`, etc.
+When `drug.info.csv` is missing, Step2 still creates a drug-named subfolder (auto-detected
+from metadata/path, fallback: `drug1/`) to avoid overwriting root-level
+analysis outputs.
+If legacy root-level outputs already exist under `analyzed/<exp>/`, Step2 copies them into the
+drug subfolder on the next run so Step3 can compare by drug directory.
 
 By default, pipeline step 2 extracts a window from **6 hours before** to **18 hours after**
 each injection (`injection_before_hours=6`, `injection_after_hours=18`).
@@ -337,11 +380,22 @@ This step generates **hypnograms**, **PSD plots**, and **summary figures**.
 By default, plots are written under `output_dir/<target_group>/` to avoid overwriting
 results when multiple mouse groups are analyzed.
 
-* Use `--comparison-mode drug` (default) to compare two drugs within a single mouse group (legacy behavior controlled by `--target-group`).
+* Use `--comparison-mode drug` (default) to compare one or more drug conditions within a single mouse group (legacy behavior controlled by `--target-group`).
+* Set the drug list with `--drug-names vehicle drugA drugB` (or via `merge.drug_names` in config).
 * Use `--comparison-mode mouse_group` with `--comparison-drug vehicle` (or `rapalog`) and
   `--mouse-groups-to-compare WT KO` to generate WT vs KO plots. Outputs go under
   `output_dir/WT_vs_KO/` when `mouse_groups_to_compare` is provided.
 * Use `--comparison-mode mouse_group` to compare two mouse groups within a single drug; set the reference drug with `--comparison-drug` and optionally limit groups via `--mouse-groups-to-compare`.
+
+### Quick Reference (drug condition setup)
+
+* 2-condition (legacy): `drug_names: ["vehicle", "rapalog"]`
+* 3-condition: `drug_names: ["vehicle", "drugA", "drugB"]`
+* 4-condition: `drug_names: ["vehicle", "drugA", "drugB", "drugC"]`
+* Keep names consistent between:
+  * `drug.info.csv` (`drugX_name`)
+  * analyzed subdirectory names generated in step2 (`<drug>_before..._after...`)
+  * merge configuration (`merge.drug_names`)
 
 ### Minimal Workflow Summary
 

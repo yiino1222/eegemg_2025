@@ -17,9 +17,11 @@ def merge_and_plot(
     comparison_mode="drug",
     comparison_drug="vehicle",
     mouse_groups_to_compare=None,
+    drug_names=None,
     quant_time_windows=None,
     config_path=None,
 ):
+    drug_names = drug_names or ["vehicle", "rapalog"]
     output_dir = Path(output_dir)
     if comparison_mode == "mouse_group" and mouse_groups_to_compare:
         compare_label = "_vs_".join(mouse_groups_to_compare)
@@ -44,6 +46,7 @@ def merge_and_plot(
         comparison_mode=comparison_mode,
         comparison_drug=comparison_drug,
         mouse_groups_to_compare=mouse_groups_to_compare,
+        drug_names=drug_names,
         quant_time_windows=quant_time_windows,
     )
 
@@ -58,8 +61,12 @@ def merge_and_plot(
         psd_df = pd.read_csv(psd_df)
         bout_df = pd.read_csv(bout_df)
 
-        for stage in ("NREM", "Wake", "REM"):
-            ana.wilcoxon_n_paried_t(stage_df, psd_df, bout_df, target_group, stage)
+        if len(drug_names) == 2:
+            drug_pair = tuple(drug_names)
+            for stage in ("NREM", "Wake", "REM"):
+                ana.wilcoxon_n_paried_t(stage_df, psd_df, bout_df, target_group, stage, drug_pair=drug_pair)
+        else:
+            print(f"[INFO] Skipping paired two-condition tests because drug_names has {len(drug_names)} conditions.")
 
     return merge_result
 
@@ -86,6 +93,12 @@ def main() -> None:
         nargs="*",
         default=None,
         help="Mouse groups to compare when comparison-mode is mouse_group (defaults to all groups found).",
+    )
+    parser.add_argument(
+        "--drug-names",
+        nargs="*",
+        default=None,
+        help="Drug conditions to compare in drug mode (e.g., vehicle drugA drugB).",
     )
     parser.add_argument("--output-dir", type=Path, required=True, help="Directory to store merged outputs")
     parser.add_argument("--config-path", type=Path, default=None, help="Optional config.json to copy into output dir")
@@ -114,6 +127,7 @@ def main() -> None:
         args.comparison_mode,
         args.comparison_drug,
         args.mouse_groups_to_compare,
+        args.drug_names,
         quant_time_windows,
         args.config_path,
     )
