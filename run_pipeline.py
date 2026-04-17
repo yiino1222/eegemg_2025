@@ -63,6 +63,7 @@ def ensure_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
         "comparison_mode": "drug",
         "comparison_drug": "vehicle",
         "mouse_groups_to_compare": [],
+        "drug_names": ["vehicle", "rapalog"],
         "output_dir": "/p-antipsychotics-sleep/figure/output",
         "epoch_len_sec": preprocess["epoch_len_sec"],
         "sample_freq": preprocess["sample_freq"],
@@ -71,6 +72,50 @@ def ensure_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     return {"preprocess": preprocess, "analysis": analysis, "merge": merge}
+
+
+def resolve_analyzed_dir_list(config: Dict[str, Any]) -> Dict[str, Any]:
+    merge_conf = config["merge"]
+    if merge_conf.get("analyzed_dir_list"):
+        return config
+
+    analysis_conf = config["analysis"]
+    prj_dir = Path(analysis_conf["prj_dir"])
+    output_dir_name = analysis_conf["output_dir_name"]
+    result_dir_name = analysis_conf["result_dir_name"]
+    faster_dir_list = analysis_conf.get("faster_dir_list")
+
+    if faster_dir_list is None:
+        faster_dir_list = sorted(
+            str(path)
+            for path in prj_dir.rglob(result_dir_name)
+            if path.is_dir()
+        )
+
+    def _output_root_for_faster_dir(faster_dir: str) -> Path:
+        faster_path = Path(faster_dir)
+        if faster_path.name == result_dir_name:
+            faster_path = faster_path.parent
+        if "raw_data" in faster_path.parts:
+            raw_data_index = faster_path.parts.index("raw_data")
+            base_dir = Path(*faster_path.parts[:raw_data_index]) or prj_dir.parent
+            rel_parts = list(faster_path.parts[raw_data_index + 1 :])
+            if rel_parts:
+                last_part = rel_parts[-1]
+                if last_part.startswith("raw_data"):
+                    suffix = last_part[len("raw_data") :]
+                    rel_parts[-1] = f"{output_dir_name}{suffix}"
+            rel_path = Path(*rel_parts)
+            return base_dir / output_dir_name / rel_path
+        return prj_dir / output_dir_name / faster_path.name
+
+    analyzed_dirs = sorted({str(_output_root_for_faster_dir(fd)) for fd in faster_dir_list})
+    merge_conf["analyzed_dir_list"] = analyzed_dirs
+    LOGGER.info(
+        "merge.analyzed_dir_list was empty; auto-discovered %d analyzed directories from step2 outputs",
+        len(analyzed_dirs),
+    )
+    return config
 
 
 def run_pipeline(config_path: Path, executed_dir: Optional[Path] = None) -> None:
@@ -84,6 +129,7 @@ def run_pipeline(config_path: Path, executed_dir: Optional[Path] = None) -> None
     analyze_project(**config["analysis"])
 
     LOGGER.info("Starting merge and plot step")
+    config = resolve_analyzed_dir_list(config)
     merge_and_plot(**config["merge"])
 
 
