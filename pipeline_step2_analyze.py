@@ -144,7 +144,11 @@ def read_drug_info(data_dir: Path, exp_label: str) -> dict:
     if not drug_info_path.exists():
         return {}
     drug_info_df = pd.read_csv(drug_info_path)
-    row = drug_info_df.loc[drug_info_df["Experiment label"] == exp_label]
+    if "Experiment label" not in drug_info_df.columns:
+        return {}
+    exp_label_norm = str(exp_label).strip().lower()
+    exp_labels_norm = drug_info_df["Experiment label"].astype(str).str.strip().str.lower()
+    row = drug_info_df.loc[exp_labels_norm == exp_label_norm]
     if row.empty:
         return {}
     row = row.iloc[0]
@@ -163,7 +167,7 @@ def read_drug_info(data_dir: Path, exp_label: str) -> dict:
         datetime_col = drug_cols[idx].get("datetime")
         if not name_col or not datetime_col:
             continue
-        name = str(row[name_col]).strip().lower()
+        name = str(row[name_col]).strip()
         if not name or name == "nan":
             continue
         dt_raw = pd.to_datetime(row[datetime_col], errors="coerce")
@@ -2704,9 +2708,15 @@ def analyze_project(
         exp_label = mouse_info["mouse_info"]["Experiment label"].iloc[0]
         data_dir = resolve_data_dir(faster_dir)
         drug_map = read_drug_info(data_dir, exp_label)
+        if drug_map:
+            print_log(f"Detected drugs from drug.info.csv ({exp_label}): {list(drug_map.keys())}")
+        else:
+            print_log(f"[WARN] No matching drug.info.csv row for Experiment label: {exp_label}. Using fallback drug subdir.")
         start_datetime = mouse_info["start_datetime"]
 
         if drug_map:
+            for drug_name in drug_map:
+                (output_root / format_drug_result_subdir(drug_name)).mkdir(parents=True, exist_ok=True)
             for drug_name, injection_datetime in drug_map.items():
                 window_start = injection_datetime - pd.Timedelta(hours=injection_before_hours)
                 window_end = injection_datetime + pd.Timedelta(hours=injection_after_hours)
