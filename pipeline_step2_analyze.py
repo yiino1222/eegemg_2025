@@ -9,6 +9,8 @@ import pickle
 import argparse
 import copy
 import glob
+import re
+import shutil
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -141,21 +143,34 @@ def read_drug_info(data_dir: Path, exp_label: str) -> dict:
     drug_info_path = data_dir / "drug.info.csv"
     if not drug_info_path.exists():
         return {}
-    drug_info_df = pd.read_csv(drug_info_path, parse_dates=["drug1_datetime", "drug2_datetime"])
-    row = drug_info_df.loc[drug_info_df["Experiment label"] == exp_label]
+    drug_info_df = pd.read_csv(drug_info_path)
+    if "Experiment label" not in drug_info_df.columns:
+        return {}
+    exp_label_norm = str(exp_label).strip().lower()
+    exp_labels_norm = drug_info_df["Experiment label"].astype(str).str.strip().str.lower()
+    row = drug_info_df.loc[exp_labels_norm == exp_label_norm]
     if row.empty:
         return {}
     row = row.iloc[0]
     drug_map = {}
-    for idx in (1, 2):
-        name_col = f"drug{idx}_name"
-        datetime_col = f"drug{idx}_datetime"
-        if name_col not in row or datetime_col not in row:
+    drug_cols = {}
+    for col in row.index:
+        m = re.fullmatch(r"drug(\d+)_(name|datetime)", str(col))
+        if not m:
             continue
-        name = str(row[name_col]).strip().lower()
+        idx = int(m.group(1))
+        kind = m.group(2)
+        drug_cols.setdefault(idx, {})[kind] = col
+
+    for idx in sorted(drug_cols):
+        name_col = drug_cols[idx].get("name")
+        datetime_col = drug_cols[idx].get("datetime")
+        if not name_col or not datetime_col:
+            continue
+        name = str(row[name_col]).strip()
         if not name or name == "nan":
             continue
-        dt_raw = row[datetime_col]
+        dt_raw = pd.to_datetime(row[datetime_col], errors="coerce")
         if pd.isna(dt_raw):
             continue
         drug_map[name] = dt_raw
@@ -169,6 +184,10 @@ def format_injection_subdir(drug_name: str, before_hours: float, after_hours: fl
         return str(value).replace(".", "p")
 
     return f"{drug_name}_before{_format_hours(before_hours)}h_after{_format_hours(after_hours)}h"
+
+
+def format_drug_result_subdir(drug_name: str) -> Path:
+    return Path(drug_name)
 def stagetime_in_a_day(stage_call):
     """Count each stage in the stage_call list and calculate
     the daily stage time in minuites.
@@ -2626,7 +2645,7 @@ def analyze_project(
             return base_dir / output_dir_name / rel_path
         return prj_dir / output_dir_name / faster_path.name
 
-    def _detect_output_subdir(faster_dir: str, mouse_info_df: pd.DataFrame) -> Optional[str]:
+    def _detect_output_drug_name(faster_dir: str, mouse_info_df: pd.DataFrame) -> str:
         candidates = []
         for column in ("Note", "Experiment label"):
             if column in mouse_info_df.columns:
@@ -2636,10 +2655,13 @@ def analyze_project(
         for value in candidates:
             lower = value.lower()
             if "vehicle" in lower:
-                return "vehicle_24h_before6h"
+                return "vehicle"
             if "rapalog" in lower:
-                return "rapalog_24h_before6h"
-        return None
+                return "rapalog"
+            match = re.search(r"(drug[0-9a-z]+)", lower)
+            if match:
+                return match.group(1)
+        return "drug1"
 
     def should_skip_output(output_dir: Path) -> bool:
         if overwrite:
@@ -2652,6 +2674,33 @@ def analyze_project(
             return True
         return False
 
+    def migrate_legacy_root_outputs(output_root: Path, output_dir: Path) -> None:
+        """Copy legacy root-level analysis outputs into a drug subdir."""
+        if output_dir.exists():
+            return
+        legacy_names = [
+            "stagetime_stats.npy",
+            "psd_info_list.pkl",
+            "sleep_stats.csv",
+            "stage-time_profile.csv",
+            "stage_transition_profile.csv",
+            "PSD_norm",
+            "PSD_raw",
+        ]
+        legacy_paths = [output_root / name for name in legacy_names if (output_root / name).exists()]
+        if not legacy_paths:
+            return
+        output_dir.mkdir(parents=True, exist_ok=True)
+        for src in legacy_paths:
+            dst = output_dir / src.name
+            if src.is_dir():
+                if not dst.exists():
+                    shutil.copytree(src, dst)
+            else:
+                if not dst.exists():
+                    shutil.copy2(src, dst)
+        print_log(f"Migrated legacy root outputs to {output_dir}")
+
     for faster_dir in faster_dir_list:
         output_root = _output_root_for_faster_dir(faster_dir)
         output_root.mkdir(parents=True, exist_ok=True)
@@ -2659,12 +2708,16 @@ def analyze_project(
         exp_label = mouse_info["mouse_info"]["Experiment label"].iloc[0]
         data_dir = resolve_data_dir(faster_dir)
         drug_map = read_drug_info(data_dir, exp_label)
+        if drug_map:
+            print_log(f"Detected drugs from drug.info.csv ({exp_label}): {list(drug_map.keys())}")
+        else:
+            print_log(f"[WARN] No matching drug.info.csv row for Experiment label: {exp_label}. Using fallback drug subdir.")
         start_datetime = mouse_info["start_datetime"]
 
         if drug_map:
+            for drug_name in drug_map:
+                (output_root / format_drug_result_subdir(drug_name)).mkdir(parents=True, exist_ok=True)
             for drug_name, injection_datetime in drug_map.items():
-                if drug_name not in ("vehicle", "rapalog"):
-                    continue
                 window_start = injection_datetime - pd.Timedelta(hours=injection_before_hours)
                 window_end = injection_datetime + pd.Timedelta(hours=injection_after_hours)
                 start_offset = max((window_start - start_datetime).total_seconds(), 0)
@@ -2673,12 +2726,9 @@ def analyze_project(
                 epoch_end = int(end_offset // epoch_len_sec)
                 epoch_range = range(epoch_start, epoch_end)
 
-                output_subdir = format_injection_subdir(
-                    drug_name,
-                    injection_before_hours,
-                    injection_after_hours,
-                )
+                output_subdir = format_drug_result_subdir(drug_name)
                 output_dir = output_root / output_subdir
+                migrate_legacy_root_outputs(output_root, output_dir)
                 output_dir.mkdir(parents=True, exist_ok=True)
                 if should_skip_output(output_dir):
                     continue
@@ -2694,15 +2744,10 @@ def analyze_project(
                     time_in_hour_offset=-injection_before_hours,
                 )
         else:
-            output_subdir = _detect_output_subdir(faster_dir, mouse_info["mouse_info"])
-            if output_subdir in ("vehicle_24h_before6h", "rapalog_24h_before6h"):
-                drug_name = output_subdir.split("_", 1)[0]
-                output_subdir = format_injection_subdir(
-                    drug_name,
-                    injection_before_hours,
-                    injection_after_hours,
-                )
-            output_dir = output_root / output_subdir if output_subdir else output_root
+            drug_name = _detect_output_drug_name(faster_dir, mouse_info["mouse_info"])
+            output_subdir = format_drug_result_subdir(drug_name)
+            output_dir = output_root / output_subdir
+            migrate_legacy_root_outputs(output_root, output_dir)
             output_dir.mkdir(parents=True, exist_ok=True)
             if should_skip_output(output_dir):
                 continue
