@@ -145,11 +145,28 @@ def read_drug_info(data_dir: Path, exp_label: str) -> dict:
         return {}
     drug_info_df = pd.read_csv(drug_info_path)
     if "Experiment label" not in drug_info_df.columns:
+        print_log(
+            f"[ERROR] drug.info.csv is missing required column 'Experiment label': {drug_info_path}"
+        )
         return {}
     exp_label_norm = str(exp_label).strip().lower()
     exp_labels_norm = drug_info_df["Experiment label"].astype(str).str.strip().str.lower()
     row = drug_info_df.loc[exp_labels_norm == exp_label_norm]
     if row.empty:
+        known_labels = sorted(
+            {
+                str(v).strip()
+                for v in drug_info_df["Experiment label"].dropna().tolist()
+                if str(v).strip()
+            }
+        )
+        known_preview = ", ".join(known_labels[:10])
+        if len(known_labels) > 10:
+            known_preview += ", ..."
+        print_log(
+            "[ERROR] No matching row in drug.info.csv for "
+            f"Experiment label '{exp_label}'. Known labels: [{known_preview}]"
+        )
         return {}
     row = row.iloc[0]
     drug_map = {}
