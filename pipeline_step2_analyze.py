@@ -10,6 +10,7 @@ import argparse
 import copy
 import glob
 import re
+import shutil
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -2669,6 +2670,33 @@ def analyze_project(
             return True
         return False
 
+    def migrate_legacy_root_outputs(output_root: Path, output_dir: Path) -> None:
+        """Copy legacy root-level analysis outputs into a drug subdir."""
+        if output_dir.exists():
+            return
+        legacy_names = [
+            "stagetime_stats.npy",
+            "psd_info_list.pkl",
+            "sleep_stats.csv",
+            "stage-time_profile.csv",
+            "stage_transition_profile.csv",
+            "PSD_norm",
+            "PSD_raw",
+        ]
+        legacy_paths = [output_root / name for name in legacy_names if (output_root / name).exists()]
+        if not legacy_paths:
+            return
+        output_dir.mkdir(parents=True, exist_ok=True)
+        for src in legacy_paths:
+            dst = output_dir / src.name
+            if src.is_dir():
+                if not dst.exists():
+                    shutil.copytree(src, dst)
+            else:
+                if not dst.exists():
+                    shutil.copy2(src, dst)
+        print_log(f"Migrated legacy root outputs to {output_dir}")
+
     for faster_dir in faster_dir_list:
         output_root = _output_root_for_faster_dir(faster_dir)
         output_root.mkdir(parents=True, exist_ok=True)
@@ -2690,6 +2718,7 @@ def analyze_project(
 
                 output_subdir = format_drug_result_subdir(drug_name)
                 output_dir = output_root / output_subdir
+                migrate_legacy_root_outputs(output_root, output_dir)
                 output_dir.mkdir(parents=True, exist_ok=True)
                 if should_skip_output(output_dir):
                     continue
@@ -2708,6 +2737,7 @@ def analyze_project(
             drug_name = _detect_output_drug_name(faster_dir, mouse_info["mouse_info"])
             output_subdir = format_drug_result_subdir(drug_name)
             output_dir = output_root / output_subdir
+            migrate_legacy_root_outputs(output_root, output_dir)
             output_dir.mkdir(parents=True, exist_ok=True)
             if should_skip_output(output_dir):
                 continue

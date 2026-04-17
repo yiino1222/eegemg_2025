@@ -355,6 +355,8 @@ Outputs are written under drug-specific nested subfolders such as
 When `drug.info.csv` is missing, Step2 still creates a drug-named subfolder (auto-detected
 from metadata/path, fallback: `drug1/`) to avoid overwriting root-level
 analysis outputs.
+If legacy root-level outputs already exist under `analyzed/<exp>/`, Step2 copies them into the
+drug subfolder on the next run so Step3 can compare by drug directory.
 
 By default, pipeline step 2 extracts a window from **6 hours before** to **18 hours after**
 each injection (`injection_before_hours=6`, `injection_after_hours=18`).
