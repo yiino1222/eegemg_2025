@@ -608,6 +608,8 @@ def bout_table(stage_call):
         Each row tells what stage, how long, and the epoch index where the bout starts.
     """
     epoch_len = len(stage_call)
+    if epoch_len == 0:
+        return pd.DataFrame({'stage': [], 'len': [], 'start_idx': []})
 
     bidx_trans = stage_call[0:(epoch_len-1)] != stage_call[1:epoch_len]
     bidx_trans = np.append(True, bidx_trans) # the first epoch is always True
@@ -2404,6 +2406,12 @@ def make_summary_stats(
             )
         stage_call = stage_call[effective_epoch_range]
         epoch_num_in_range = len(stage_call)
+        if epoch_num_in_range == 0:
+            print_log(
+                f"[WARN] Empty epoch window after trimming for {faster_dir} {device_label}; "
+                "skipping this channel."
+            )
+            continue
         
         #extract_raw_EEG_n_EMG
         eeg,emg=extract_raw_EEG_n_EMG(faster_dir,result_dir_name,device_label,effective_epoch_range)

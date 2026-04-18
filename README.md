@@ -361,6 +361,8 @@ Step2 matches `drug.info.csv` by `Experiment label` using trimmed, case-insensit
 logs detected drug names before running analysis.
 If no matching `Experiment label` exists (or the column is missing), Step2 emits an explicit
 `[ERROR]` log message before falling back to automatic drug-subdir detection.
+If an injection window falls outside available staged epochs, Step2 now logs a warning and skips
+that channel instead of raising an IndexError.
 
 By default, pipeline step 2 extracts a window from **6 hours before** to **18 hours after**
 each injection (`injection_before_hours=6`, `injection_after_hours=18`).
