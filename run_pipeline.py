@@ -68,6 +68,7 @@ def ensure_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
         "epoch_len_sec": preprocess["epoch_len_sec"],
         "sample_freq": preprocess["sample_freq"],
         "quant_time_windows": {},
+        "include_individual_plots": False,
         **config.get("merge", {}),
     }
 

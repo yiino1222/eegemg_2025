@@ -11,6 +11,7 @@ import re
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.figure import Figure
 import textwrap
 
@@ -1444,6 +1445,11 @@ def merge_n_plot(
     injection_before_hours=6,
     injection_after_hours=18,
     drug_names=DEFAULT_DRUGS,
+    include_individual_plots=False,
+    individual_pdf_path=None,
+    individual_pdf_writer=None,
+    individual_page_title=None,
+    save_csv=True,
 ):
     drug_names = _ordered_drug_list(drug_names)
     quant_time_windows = quant_time_windows or {}
@@ -1573,20 +1579,21 @@ def merge_n_plot(
     meta_psd_start_end_df_before_mean,meta_psd_start_end_df_before_sem,meta_psd_start_end_df_before_count=group_analysis_each_df(meta_psd_start_end_df_before)
     meta_psd_start_end_df_after_mean,meta_psd_start_end_df_after_sem,meta_psd_start_end_df_after_count=group_analysis_each_df(meta_psd_start_end_df_after)
         
-    meta_stage_df.to_csv(os.path.join(output_dir,"meta_stage_df.csv"))
-    meta_sw_trans_df.to_csv(os.path.join(output_dir,"meta_sw_trans_df.csv"))
-    meta_stage_bout_df.to_csv(os.path.join(output_dir,"meta_stage_bout_df.csv"))
-    merge_psd_ts_df.to_csv(os.path.join(output_dir,"merge_psd_ts_df.csv"))
-    merge_psd_profile_df.to_csv(os.path.join(output_dir,"merge_psd_profile_df.csv"))
-    meta_psd_start_end_df.to_csv(os.path.join(output_dir,"meta_psd_start_end_df.csv"))
-    meta_psd_start_end_df_before.to_csv(os.path.join(output_dir,"meta_psd_start_end_df_before.csv"))
-    meta_psd_start_end_df_after.to_csv(os.path.join(output_dir,"meta_psd_start_end_df_after.csv"))
-    meta_stage_n_bout_df_before.to_csv(os.path.join(output_dir,"meta_stage_n_bout_df_before.csv"))
-    meta_stage_n_bout_df_after.to_csv(os.path.join(output_dir,"meta_stage_n_bout_df_after.csv"))
-    merge_psd_ts_df_before.to_csv(os.path.join(output_dir,"merge_psd_ts_df_before.csv"))
-    merge_psd_ts_df_after.to_csv(os.path.join(output_dir,"merge_psd_ts_df_after.csv"))
-    merge_norm_psd_ts_df_after.to_csv(os.path.join(output_dir,"merge_norm_psd_ts_df_after.csv"))
-    meta_norm_psd_ts_mean.to_csv(os.path.join(output_dir,"meta_norm_psd_ts_mean_df.csv"))
+    if save_csv:
+        meta_stage_df.to_csv(os.path.join(output_dir,"meta_stage_df.csv"))
+        meta_sw_trans_df.to_csv(os.path.join(output_dir,"meta_sw_trans_df.csv"))
+        meta_stage_bout_df.to_csv(os.path.join(output_dir,"meta_stage_bout_df.csv"))
+        merge_psd_ts_df.to_csv(os.path.join(output_dir,"merge_psd_ts_df.csv"))
+        merge_psd_profile_df.to_csv(os.path.join(output_dir,"merge_psd_profile_df.csv"))
+        meta_psd_start_end_df.to_csv(os.path.join(output_dir,"meta_psd_start_end_df.csv"))
+        meta_psd_start_end_df_before.to_csv(os.path.join(output_dir,"meta_psd_start_end_df_before.csv"))
+        meta_psd_start_end_df_after.to_csv(os.path.join(output_dir,"meta_psd_start_end_df_after.csv"))
+        meta_stage_n_bout_df_before.to_csv(os.path.join(output_dir,"meta_stage_n_bout_df_before.csv"))
+        meta_stage_n_bout_df_after.to_csv(os.path.join(output_dir,"meta_stage_n_bout_df_after.csv"))
+        merge_psd_ts_df_before.to_csv(os.path.join(output_dir,"merge_psd_ts_df_before.csv"))
+        merge_psd_ts_df_after.to_csv(os.path.join(output_dir,"merge_psd_ts_df_after.csv"))
+        merge_norm_psd_ts_df_after.to_csv(os.path.join(output_dir,"merge_norm_psd_ts_df_after.csv"))
+        meta_norm_psd_ts_mean.to_csv(os.path.join(output_dir,"meta_norm_psd_ts_mean_df.csv"))
     
     print("mouse_group in meta_stage_df:",
       sorted(meta_stage_df.index.get_level_values("mouse_group").unique()))
@@ -1777,7 +1784,8 @@ def merge_n_plot(
     plt.show()
 
     # 図を保存
-    fig.savefig(os.path.join(output_dir,"timeseries_and_PSD_plot.pdf"))
+    if not individual_pdf_path and individual_pdf_writer is None:
+        fig.savefig(os.path.join(output_dir,"timeseries_and_PSD_plot.pdf"))
             
     ##bargraphのプロット
     
@@ -1861,7 +1869,57 @@ def merge_n_plot(
     plt.tight_layout()
     plt.show()
     
-    fig2.savefig(os.path.join(output_dir,"bargraph.pdf"))
+    if individual_pdf_writer is not None:
+        if individual_page_title:
+            fig.suptitle(individual_page_title, fontsize=16)
+        individual_pdf_writer.savefig(fig)
+    elif individual_pdf_path:
+        os.makedirs(os.path.dirname(individual_pdf_path), exist_ok=True)
+        with PdfPages(individual_pdf_path) as pdf:
+            pdf.savefig(fig)
+            pdf.savefig(fig2)
+    else:
+        fig2.savefig(os.path.join(output_dir,"bargraph.pdf"))
+
+    if include_individual_plots:
+        if comparison_mode != "drug":
+            print("[WARN] include_individual_plots is supported only in comparison_mode='drug'. Skipping.")
+        else:
+            dfr_stage = meta_stage_df.reset_index()
+            all_target_mouse_ids = sorted(
+                dfr_stage[dfr_stage["mouse_group"] == target_group]["mouse_ID"].astype(str).unique().tolist()
+            )
+            if not all_target_mouse_ids:
+                print(f"[WARN] No mice found for target_group={target_group}; skipping individual plots.")
+            else:
+                base_exclude = set(exclude_mouse_list or [])
+                individual_output_dir = os.path.join(output_dir, "individual")
+                os.makedirs(individual_output_dir, exist_ok=True)
+                combined_pdf_path = os.path.join(individual_output_dir, "individual_plots.pdf")
+                with PdfPages(combined_pdf_path) as individual_pdf:
+                    for mouse_id in all_target_mouse_ids:
+                        individual_exclude = sorted(base_exclude.union(set(all_target_mouse_ids) - {mouse_id}))
+                        print(f"[INFO] Generating individual page for mouse_ID={mouse_id} -> {combined_pdf_path}")
+                        merge_n_plot(
+                            analyzed_dir_list=analyzed_dir_list,
+                            epoch_len_sec=epoch_len_sec,
+                            sample_freq=sample_freq,
+                            exclude_mouse_list=individual_exclude,
+                            target_group=target_group,
+                            output_dir=individual_output_dir,
+                            group_rename_dic=group_rename_dic,
+                            comparison_mode=comparison_mode,
+                            comparison_drug=comparison_drug,
+                            mouse_groups_to_compare=mouse_groups_to_compare,
+                            quant_time_windows=quant_time_windows,
+                            injection_before_hours=injection_before_hours,
+                            injection_after_hours=injection_after_hours,
+                            drug_names=drug_names,
+                            include_individual_plots=False,
+                            individual_pdf_writer=individual_pdf,
+                            individual_page_title=f"mouse_ID={mouse_id}",
+                            save_csv=False,
+                        )
     
     
 def wilcoxon_n_paried_t(stage_df,psd_df,bout_df,target_group,stage,drug_pair=("vehicle", "rapalog")):

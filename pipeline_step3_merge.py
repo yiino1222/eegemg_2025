@@ -19,6 +19,7 @@ def merge_and_plot(
     mouse_groups_to_compare=None,
     drug_names=None,
     quant_time_windows=None,
+    include_individual_plots=False,
     config_path=None,
 ):
     drug_names = drug_names or ["vehicle", "rapalog"]
@@ -48,6 +49,7 @@ def merge_and_plot(
         mouse_groups_to_compare=mouse_groups_to_compare,
         drug_names=drug_names,
         quant_time_windows=quant_time_windows,
+        include_individual_plots=include_individual_plots,
     )
 
     stage_df = (output_dir / "meta_stage_n_bout_df_after.csv")
@@ -111,6 +113,11 @@ def main() -> None:
         help="JSON mapping for quantification windows, e.g. "
         '{"stage_after":[6,7],"psd_after":[6,7],"psd_before":[5,5],"stage_before":[3,5]}',
     )
+    parser.add_argument(
+        "--include-individual-plots",
+        action="store_true",
+        help="Also save per-mouse plots in the same layout as merged plots (drug mode only).",
+    )
 
     args = parser.parse_args()
     rename_dict = json.loads(args.rename_dict)
@@ -129,6 +136,7 @@ def main() -> None:
         args.mouse_groups_to_compare,
         args.drug_names,
         quant_time_windows,
+        args.include_individual_plots,
         args.config_path,
     )
 

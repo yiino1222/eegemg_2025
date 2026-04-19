@@ -76,6 +76,7 @@ Use `--config /path/to/other.json` when you want to run with a different configu
     "mouse_groups_to_compare": [],
     "drug_names": ["vehicle", "drugA", "drugB"],
     "output_dir": "/data/figures/kaist",
+    "include_individual_plots": false,
     "epoch_len_sec": 8,
     "sample_freq": 128,
     "quant_time_windows": {
@@ -388,6 +389,7 @@ results when multiple mouse groups are analyzed.
 
 * Use `--comparison-mode drug` (default) to compare one or more drug conditions within a single mouse group (legacy behavior controlled by `--target-group`).
 * Set the drug list with `--drug-names vehicle drugA drugB` (or via `merge.drug_names` in config).
+* Add `--include-individual-plots` (or `merge.include_individual_plots: true`) to save a single **multi-page PDF** under `output_dir/<target_group>/individual/individual_plots.pdf` (one page per mouse).
 * Use `--comparison-mode mouse_group` with `--comparison-drug vehicle` (or `rapalog`) and
   `--mouse-groups-to-compare WT KO` to generate WT vs KO plots. Outputs go under
   `output_dir/WT_vs_KO/` when `mouse_groups_to_compare` is provided.
