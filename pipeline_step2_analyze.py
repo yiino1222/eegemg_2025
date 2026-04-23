@@ -2750,6 +2750,14 @@ def analyze_project(
                 epoch_start = int(start_offset // epoch_len_sec)
                 epoch_end = int(end_offset // epoch_len_sec)
                 epoch_range = range(epoch_start, epoch_end)
+                injection_offset_hours = (injection_datetime - start_datetime).total_seconds() / 3600
+                selected_start_hours = (epoch_start * epoch_len_sec) / 3600
+                time_in_hour_offset = selected_start_hours - injection_offset_hours
+                if window_start < start_datetime:
+                    print_log(
+                        f"[WARN] Requested pre-injection window exceeds recording start for {drug_name}. "
+                        f"Using truncated window and adjusted time offset ({time_in_hour_offset:.2f} h)."
+                    )
 
                 output_subdir = format_drug_result_subdir(drug_name)
                 output_dir = output_root / output_subdir
@@ -2766,7 +2774,7 @@ def analyze_project(
                     epoch_len_sec=epoch_len_sec,
                     is_circadian=False,
                     result_dir_name=result_dir_name,
-                    time_in_hour_offset=-injection_before_hours,
+                    time_in_hour_offset=time_in_hour_offset,
                 )
         else:
             drug_name = _detect_output_drug_name(faster_dir, mouse_info["mouse_info"])
