@@ -2733,6 +2733,10 @@ def analyze_project(
         exp_label = mouse_info["mouse_info"]["Experiment label"].iloc[0]
         data_dir = resolve_data_dir(faster_dir)
         drug_map = read_drug_info(data_dir, exp_label)
+        if drug_map:
+            print_log(f"Detected drugs from drug.info.csv ({exp_label}): {list(drug_map.keys())}")
+        else:
+            print_log(f"[WARN] No matching drug.info.csv row for Experiment label: {exp_label}. Using fallback drug subdir.")
         start_datetime = mouse_info["start_datetime"]
         recording_end = start_datetime + pd.Timedelta(seconds=mouse_info["epoch_num"] * epoch_len_sec)
         if drug_map:
