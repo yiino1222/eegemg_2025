@@ -2738,6 +2738,11 @@ def analyze_project(
         else:
             print_log(f"[WARN] No matching drug.info.csv row for Experiment label: {exp_label}. Using fallback drug subdir.")
         start_datetime = mouse_info["start_datetime"]
+        recording_end = start_datetime + pd.Timedelta(seconds=mouse_info["epoch_num"] * epoch_len_sec)
+        if drug_map:
+            print_log(f"Detected drugs from drug.info.csv ({exp_label}): {list(drug_map.keys())}")
+        else:
+            print_log(f"[WARN] No matching drug.info.csv row for Experiment label: {exp_label}. Using fallback drug subdir.")
 
         if drug_map:
             for drug_name in drug_map:
@@ -2758,6 +2763,16 @@ def analyze_project(
                         f"[WARN] Requested pre-injection window exceeds recording start for {drug_name}. "
                         f"Using truncated window and adjusted time offset ({time_in_hour_offset:.2f} h)."
                     )
+                if window_end > recording_end:
+                    print_log(
+                        f"[WARN] Requested post-injection window exceeds recording end for {drug_name}. "
+                        "Post window will be truncated."
+                    )
+                effective_hours = (epoch_end - epoch_start) * epoch_len_sec / 3600
+                print_log(
+                    f"[INFO] Effective relative window for {drug_name}: "
+                    f"{time_in_hour_offset:.2f} to {time_in_hour_offset + effective_hours:.2f} h"
+                )
 
                 output_subdir = format_drug_result_subdir(drug_name)
                 output_dir = output_root / output_subdir

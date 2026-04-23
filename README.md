@@ -366,6 +366,8 @@ If an injection window falls outside available staged epochs, Step2 now logs a w
 that channel instead of raising an IndexError.
 When the requested pre-injection window extends before recording start, Step2 now adjusts
 `time_in_hour_offset` so injection time (`0 h`) remains aligned in downstream plots.
+When requested post-injection window exceeds recording end, Step2 logs a truncation warning and
+reports the effective relative time range used for each drug.
 
 By default, pipeline step 2 extracts a window from **6 hours before** to **18 hours after**
 each injection (`injection_before_hours=6`, `injection_after_hours=18`).
