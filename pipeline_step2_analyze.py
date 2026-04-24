@@ -187,10 +187,21 @@ def read_drug_info(data_dir: Path, exp_label: str) -> dict:
         name = str(row[name_col]).strip()
         if not name or name == "nan":
             continue
-        dt_raw = pd.to_datetime(row[datetime_col], errors="coerce")
-        if pd.isna(dt_raw):
+        dt_text = str(row[datetime_col]).strip()
+        if not dt_text or dt_text.lower() == "nan":
             continue
-        drug_map[name] = dt_raw
+        try:
+            dt_parsed = stage.interpret_datetimestr(dt_text)
+        except Exception:
+            dt_parsed = pd.to_datetime(dt_text, errors="coerce")
+            if pd.isna(dt_parsed):
+                print_log(
+                    f"[ERROR] Failed to parse {datetime_col}='{dt_text}' in {drug_info_path} "
+                    f"(Experiment label: {exp_label})"
+                )
+                continue
+            dt_parsed = dt_parsed.to_pydatetime()
+        drug_map[name] = dt_parsed
     return drug_map
 
 
@@ -2740,7 +2751,8 @@ def analyze_project(
         start_datetime = mouse_info["start_datetime"]
         recording_end = start_datetime + pd.Timedelta(seconds=mouse_info["epoch_num"] * epoch_len_sec)
         if drug_map:
-            print_log(f"Detected drugs from drug.info.csv ({exp_label}): {list(drug_map.keys())}")
+            detected = ", ".join(f"{k}@{v}" for k, v in drug_map.items())
+            print_log(f"Detected drugs from drug.info.csv ({exp_label}): {detected}")
         else:
             print_log(f"[WARN] No matching drug.info.csv row for Experiment label: {exp_label}. Using fallback drug subdir.")
 

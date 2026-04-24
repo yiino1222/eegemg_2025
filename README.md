@@ -368,6 +368,8 @@ When the requested pre-injection window extends before recording start, Step2 no
 `time_in_hour_offset` so injection time (`0 h`) remains aligned in downstream plots.
 When requested post-injection window exceeds recording end, Step2 logs a truncation warning and
 reports the effective relative time range used for each drug.
+To avoid parser mismatch, Step2 now parses `drug.info.csv` injection datetimes with the same
+datetime interpreter used for `exp.info.csv`.
 
 By default, pipeline step 2 extracts a window from **6 hours before** to **18 hours after**
 each injection (`injection_before_hours=6`, `injection_after_hours=18`).
