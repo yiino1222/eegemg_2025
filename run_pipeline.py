@@ -122,6 +122,7 @@ def resolve_analyzed_dir_list(config: Dict[str, Any]) -> Dict[str, Any]:
 def run_pipeline(config_path: Path, executed_dir: Optional[Path] = None) -> None:
     resolved_path = resolve_config_path(config_path)
     config = ensure_defaults(load_config(resolved_path))
+    config = resolve_analyzed_dir_list(config)
     config["merge"]["config_path"] = str(resolved_path)
     LOGGER.info("Starting preprocessing step")
     preprocess_project(**config["preprocess"])
