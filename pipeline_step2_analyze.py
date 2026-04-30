@@ -195,17 +195,35 @@ def read_drug_info(data_dir: Path, exp_label: str) -> dict:
         dt_text = str(row[datetime_col]).strip()
         if not dt_text or dt_text.lower() == "nan":
             continue
+        dt_stage = None
         try:
-            dt_parsed = stage.interpret_datetimestr(dt_text)
+            dt_stage = stage.interpret_datetimestr(dt_text)
         except Exception:
-            dt_parsed = pd.to_datetime(dt_text, errors="coerce")
-            if pd.isna(dt_parsed):
+            pass
+        dt_pd = pd.to_datetime(dt_text, errors="coerce")
+        dt_pd = None if pd.isna(dt_pd) else dt_pd.to_pydatetime()
+
+        if dt_stage is None and dt_pd is None:
+            print_log(
+                f"[ERROR] Failed to parse {datetime_col}='{dt_text}' in {drug_info_path} "
+                f"(Experiment label: {exp_label})"
+            )
+            continue
+
+        has_clock = bool(re.search(r"\b\d{1,2}:\d{2}\b", dt_text))
+        if dt_stage is not None and dt_pd is not None and has_clock:
+            stage_has_no_clock = (dt_stage.hour, dt_stage.minute, dt_stage.second) == (0, 0, 0)
+            pd_has_clock = (dt_pd.hour, dt_pd.minute, dt_pd.second) != (0, 0, 0)
+            if stage_has_no_clock and pd_has_clock:
                 print_log(
-                    f"[ERROR] Failed to parse {datetime_col}='{dt_text}' in {drug_info_path} "
-                    f"(Experiment label: {exp_label})"
+                    f"[WARN] stage datetime parser dropped clock time for {datetime_col}='{dt_text}'. "
+                    f"Using pandas-parsed value {dt_pd}."
                 )
-                continue
-            dt_parsed = dt_parsed.to_pydatetime()
+                dt_parsed = dt_pd
+            else:
+                dt_parsed = dt_stage
+        else:
+            dt_parsed = dt_stage if dt_stage is not None else dt_pd
         drug_map[name] = dt_parsed
     return drug_map
 

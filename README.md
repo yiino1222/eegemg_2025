@@ -370,6 +370,8 @@ When requested post-injection window exceeds recording end, Step2 logs a truncat
 reports the effective relative time range used for each drug.
 To avoid parser mismatch, Step2 now parses `drug.info.csv` injection datetimes with the same
 datetime interpreter used for `exp.info.csv`.
+If the stage parser drops clock fields (e.g., converts `17:00` to `00:00`), Step2 automatically
+falls back to pandas-parsed datetime and emits a warning.
 Step2 also logs requested vs selected timestamp ranges per drug and warns if duplicated
 `Experiment label` rows exist in `drug.info.csv` (first row is used).
 Step2 now anchors extraction to the computed injection epoch (epoch-based windowing) to keep
