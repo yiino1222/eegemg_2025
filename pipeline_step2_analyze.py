@@ -2767,10 +2767,11 @@ def analyze_project(
             for drug_name, injection_datetime in drug_map.items():
                 window_start = injection_datetime - pd.Timedelta(hours=injection_before_hours)
                 window_end = injection_datetime + pd.Timedelta(hours=injection_after_hours)
-                start_offset = max((window_start - start_datetime).total_seconds(), 0)
-                end_offset = max((window_end - start_datetime).total_seconds(), 0)
-                epoch_start = int(start_offset // epoch_len_sec)
-                epoch_end = int(end_offset // epoch_len_sec)
+                inj_epoch = int(round((injection_datetime - start_datetime).total_seconds() / epoch_len_sec))
+                before_epochs = int(round(injection_before_hours * 3600 / epoch_len_sec))
+                after_epochs = int(round(injection_after_hours * 3600 / epoch_len_sec))
+                epoch_start = max(inj_epoch - before_epochs, 0)
+                epoch_end = max(inj_epoch + after_epochs, 0)
                 epoch_range = range(epoch_start, epoch_end)
                 injection_offset_hours = (injection_datetime - start_datetime).total_seconds() / 3600
                 selected_start_hours = (epoch_start * epoch_len_sec) / 3600
@@ -2791,6 +2792,10 @@ def analyze_project(
                 print_log(
                     f"[INFO] Effective relative window for {drug_name}: "
                     f"{time_in_hour_offset:.2f} to {time_in_hour_offset + effective_hours:.2f} h"
+                )
+                print_log(
+                    f"[INFO] Injection epoch for {drug_name}: {inj_epoch} "
+                    f"(before_epochs={before_epochs}, after_epochs={after_epochs})"
                 )
                 print_log(
                     f"[INFO] Window timestamps for {drug_name}: "

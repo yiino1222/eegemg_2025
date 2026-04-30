@@ -372,6 +372,8 @@ To avoid parser mismatch, Step2 now parses `drug.info.csv` injection datetimes w
 datetime interpreter used for `exp.info.csv`.
 Step2 also logs requested vs selected timestamp ranges per drug and warns if duplicated
 `Experiment label` rows exist in `drug.info.csv` (first row is used).
+Step2 now anchors extraction to the computed injection epoch (epoch-based windowing) to keep
+`t=0` aligned consistently across runs.
 
 By default, pipeline step 2 extracts a window from **6 hours before** to **18 hours after**
 each injection (`injection_before_hours=6`, `injection_after_hours=18`).
