@@ -168,6 +168,11 @@ def read_drug_info(data_dir: Path, exp_label: str) -> dict:
             f"Experiment label '{exp_label}'. Known labels: [{known_preview}]"
         )
         return {}
+    if len(row) > 1:
+        print_log(
+            f"[ERROR] Multiple rows matched Experiment label '{exp_label}' in {drug_info_path}. "
+            "Using the first matched row; please make labels unique."
+        )
     row = row.iloc[0]
     drug_map = {}
     drug_cols = {}
@@ -2770,6 +2775,8 @@ def analyze_project(
                 injection_offset_hours = (injection_datetime - start_datetime).total_seconds() / 3600
                 selected_start_hours = (epoch_start * epoch_len_sec) / 3600
                 time_in_hour_offset = selected_start_hours - injection_offset_hours
+                selected_start_dt = start_datetime + pd.Timedelta(seconds=epoch_start * epoch_len_sec)
+                selected_end_dt = start_datetime + pd.Timedelta(seconds=epoch_end * epoch_len_sec)
                 if window_start < start_datetime:
                     print_log(
                         f"[WARN] Requested pre-injection window exceeds recording start for {drug_name}. "
@@ -2784,6 +2791,11 @@ def analyze_project(
                 print_log(
                     f"[INFO] Effective relative window for {drug_name}: "
                     f"{time_in_hour_offset:.2f} to {time_in_hour_offset + effective_hours:.2f} h"
+                )
+                print_log(
+                    f"[INFO] Window timestamps for {drug_name}: "
+                    f"injection={injection_datetime}, requested=[{window_start} - {window_end}], "
+                    f"selected=[{selected_start_dt} - {selected_end_dt}]"
                 )
 
                 output_subdir = format_drug_result_subdir(drug_name)
