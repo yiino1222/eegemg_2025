@@ -52,6 +52,7 @@ def ensure_defaults(config: Dict[str, Any]) -> Dict[str, Any]:
         "overwrite": preprocess["overwrite"],
         "injection_before_hours": 6,
         "injection_after_hours": 18,
+        "legacy_time_alignment": False,
         **config.get("analysis", {}),
     }
 

@@ -62,7 +62,8 @@ Use `--config /path/to/other.json` when you want to run with a different configu
     "result_dir_name": "result",
     "overwrite": false,
     "injection_before_hours": 6,
-    "injection_after_hours": 18
+    "injection_after_hours": 18,
+    "legacy_time_alignment": false
   },
   "merge": {
     "analyzed_dir_list": [
@@ -376,6 +377,8 @@ Step2 also logs requested vs selected timestamp ranges per drug and warns if dup
 `Experiment label` rows exist in `drug.info.csv` (first row is used).
 Step2 now anchors extraction to the computed injection epoch (epoch-based windowing) to keep
 `t=0` aligned consistently across runs.
+For strict comparison against January-2026 outputs, set `analysis.legacy_time_alignment: true`
+(or `--legacy-time-alignment`) to use the legacy timing/offset logic.
 
 By default, pipeline step 2 extracts a window from **6 hours before** to **18 hours after**
 each injection (`injection_before_hours=6`, `injection_after_hours=18`).

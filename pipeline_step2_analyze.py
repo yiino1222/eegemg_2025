@@ -2673,6 +2673,7 @@ def analyze_project(
     overwrite: bool = False,
     injection_before_hours: float = 6,
     injection_after_hours: float = 18,
+    legacy_time_alignment: bool = False,
 ) -> None:
     """Run sleep stage and PSD analysis for the specified project directory."""
 
@@ -2785,15 +2786,30 @@ def analyze_project(
             for drug_name, injection_datetime in drug_map.items():
                 window_start = injection_datetime - pd.Timedelta(hours=injection_before_hours)
                 window_end = injection_datetime + pd.Timedelta(hours=injection_after_hours)
-                inj_epoch = int(round((injection_datetime - start_datetime).total_seconds() / epoch_len_sec))
-                before_epochs = int(round(injection_before_hours * 3600 / epoch_len_sec))
-                after_epochs = int(round(injection_after_hours * 3600 / epoch_len_sec))
-                epoch_start = max(inj_epoch - before_epochs, 0)
-                epoch_end = max(inj_epoch + after_epochs, 0)
+                if legacy_time_alignment:
+                    start_offset = max((window_start - start_datetime).total_seconds(), 0)
+                    end_offset = max((window_end - start_datetime).total_seconds(), 0)
+                    epoch_start = int(start_offset // epoch_len_sec)
+                    epoch_end = int(end_offset // epoch_len_sec)
+                    time_in_hour_offset = -injection_before_hours
+                    print_log(
+                        f"[INFO] legacy_time_alignment=True: using January-2026 compatible offset "
+                        f"({time_in_hour_offset:.2f} h) for {drug_name}."
+                    )
+                else:
+                    inj_epoch = int(round((injection_datetime - start_datetime).total_seconds() / epoch_len_sec))
+                    before_epochs = int(round(injection_before_hours * 3600 / epoch_len_sec))
+                    after_epochs = int(round(injection_after_hours * 3600 / epoch_len_sec))
+                    epoch_start = max(inj_epoch - before_epochs, 0)
+                    epoch_end = max(inj_epoch + after_epochs, 0)
+                    injection_offset_hours = (injection_datetime - start_datetime).total_seconds() / 3600
+                    selected_start_hours = (epoch_start * epoch_len_sec) / 3600
+                    time_in_hour_offset = selected_start_hours - injection_offset_hours
+                    print_log(
+                        f"[INFO] Injection epoch for {drug_name}: {inj_epoch} "
+                        f"(before_epochs={before_epochs}, after_epochs={after_epochs})"
+                    )
                 epoch_range = range(epoch_start, epoch_end)
-                injection_offset_hours = (injection_datetime - start_datetime).total_seconds() / 3600
-                selected_start_hours = (epoch_start * epoch_len_sec) / 3600
-                time_in_hour_offset = selected_start_hours - injection_offset_hours
                 selected_start_dt = start_datetime + pd.Timedelta(seconds=epoch_start * epoch_len_sec)
                 selected_end_dt = start_datetime + pd.Timedelta(seconds=epoch_end * epoch_len_sec)
                 if window_start < start_datetime:
@@ -2810,10 +2826,6 @@ def analyze_project(
                 print_log(
                     f"[INFO] Effective relative window for {drug_name}: "
                     f"{time_in_hour_offset:.2f} to {time_in_hour_offset + effective_hours:.2f} h"
-                )
-                print_log(
-                    f"[INFO] Injection epoch for {drug_name}: {inj_epoch} "
-                    f"(before_epochs={before_epochs}, after_epochs={after_epochs})"
                 )
                 print_log(
                     f"[INFO] Window timestamps for {drug_name}: "
@@ -2871,6 +2883,11 @@ def main() -> None:
     parser.add_argument("--overwrite", action="store_true", help="Recreate outputs even if they already exist")
     parser.add_argument("--injection-before-hours", type=float, default=6, help="Hours before injection to include")
     parser.add_argument("--injection-after-hours", type=float, default=18, help="Hours after injection to include")
+    parser.add_argument(
+        "--legacy-time-alignment",
+        action="store_true",
+        help="Use January-2026 compatible window timing/offset logic for direct historical comparison.",
+    )
 
     args = parser.parse_args()
     analyze_project(
@@ -2882,6 +2899,7 @@ def main() -> None:
         overwrite=args.overwrite,
         injection_before_hours=args.injection_before_hours,
         injection_after_hours=args.injection_after_hours,
+        legacy_time_alignment=args.legacy_time_alignment,
     )
 
 

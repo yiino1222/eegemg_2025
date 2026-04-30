@@ -12,7 +12,8 @@
     "output_dir_name": "analyzed",
     "faster_dir_list": null,
     "epoch_len_sec": 8,
-    "result_dir_name": "result"
+    "result_dir_name": "result",
+    "legacy_time_alignment": false
   },
   "merge": {
     "analyzed_dir_list": [
