@@ -24,7 +24,9 @@
     "comparison_mode": "drug",
     "comparison_drug": "vehicle",
     "mouse_groups_to_compare": [],
+    "drug_names": ["vehicle", "drugA", "drugB"],
     "output_dir": "/data/figures/kaist",
+    "include_individual_plots": false,
     "epoch_len_sec": 8,
     "sample_freq": 128,
     "quant_time_windows": {
