@@ -531,7 +531,9 @@ def interpret_datetimestr(datetime_str):
 
     timestr_patterns = [r'(\d{2})(\d{2})(\d{2})',
                         r'(\d{1,2}):(\d{1,2}):(\d{1,2})',
-                        r'(\d{1,2})-(\d{1,2})-(\d{1,2})']
+                        r'(\d{1,2})-(\d{1,2})-(\d{1,2})',
+                        r'(\d{1,2}):(\d{1,2})',
+                        r'(\d{1,2})-(\d{1,2})']
 
     datetime_obj = None
     for pat in datestr_patterns:
@@ -547,7 +549,7 @@ def interpret_datetimestr(datetime_str):
                 if matched_time:
                     hour = int(matched_time.group(1))
                     minuite = int(matched_time.group(2))
-                    second = int(matched_time.group(3))
+                    second = int(matched_time.group(3)) if matched_time.lastindex and matched_time.lastindex >= 3 else 0
                     datetime_obj = datetime(year, month, day,
                                             hour, minuite, second)
                     break

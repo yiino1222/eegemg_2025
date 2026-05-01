@@ -379,6 +379,7 @@ Step2 now anchors extraction to the computed injection epoch (epoch-based window
 `t=0` aligned consistently across runs.
 For strict comparison against January-2026 outputs, set `analysis.legacy_time_alignment: true`
 (or `--legacy-time-alignment`) to use the legacy timing/offset logic.
+Datetime parsing accepts both `HH:MM:SS` and `HH:MM` clock formats in metadata timestamps.
 
 By default, pipeline step 2 extracts a window from **6 hours before** to **18 hours after**
 each injection (`injection_before_hours=6`, `injection_after_hours=18`).
